@@ -51,7 +51,7 @@ async def item_write(discord_id: int, item_id: int, amount: int):
         lambda: supabase.table('Inventory').update(updated_inventory_data).eq(
             'discord_id', discord_id).execute())
   else:
-    # Create a new inventory record for the users
+    # Create a new inventory record for the user
     updated_inventory_data[
         'discord_id'] = discord_id  # Ensure the discord_id is included
     await asyncio.get_event_loop().run_in_executor(
