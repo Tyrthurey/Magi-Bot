@@ -1,0 +1,42 @@
+// Ignore this
+// Still no idea how to take the json stuff and send as an embed
+{
+  "messages": [
+    {
+      "content": "I see you are looking for our Patreon!",
+      "embeds": [
+        {
+          "title": "The Dungeon Merchant's Patreon [click here]",
+          "author": {
+            "name": "dotblue"
+          },
+          "description": "The patreon typically stays approximately 20k words ahead.",
+          "url": "https://www.patreon.com/DungeonShopkeeper",
+          "fields": [],
+          "image": {
+            "url": "https://c10.patreonusercontent.com/4/patreon-media/p/campaign/1/eyJ3IjoxOTIwL1110067/2b5a3e8e975e4bc8b53487d39df513b7CJ3ZSI6MX0%3D/1.png?token-time=1699056000&token-hash=cgXCxgXp2kcwuwaq0VkGhLyH2u12z0k9XtWi95dquJk%3D"
+          },
+          "footer": {
+            "text": "The Merchant Association"
+          },
+          "thumbnail": {
+            "url": "https://c10.patreonusercontent.com/4/patreon-media/p/campaign/11110067/d42102e89a884d339fc887e2425ac719/eyJoIjoxMDgwLCJ3IjoxMDgwfQ%3D%3D/2.png?token-time=1699401600&token-hash=o-7XHWw2qGCYGBd856vCORwQuA22wXlnXyNM4zxH3SY%3D"
+          }
+        }
+      ],
+      "components": [
+        {
+          "type": 1,
+          "components": [
+            {
+              "type": 2,
+              "style": 5,
+              "label": "Take me there!",
+              "url": "https://www.patreon.com/DungeonShopkeeper"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
