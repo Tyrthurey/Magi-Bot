@@ -1,14 +1,9 @@
-from dotenv import load_dotenv
-import logging
+import asyncio
 from supabase import create_client, Client
 import os
-import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
-load_dotenv()
-
-logging.basicConfig(level=logging.INFO)
-
+# Assuming environment variables are set for Supabase URL and Key
 url = os.getenv("SUPABASE_URL") or ""
 key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
@@ -22,13 +17,13 @@ async def item_write(discord_id: int, item_id: int, amount: int):
 
   inventory_data = inventory_response.data
 
-  # Initialize an empty list for items if the user does not have an inventory
-  # or if the 'items' field is None
-  inventory_items = []
-
   # If the user has an inventory and the 'items' field is not None, get the items list
-  if inventory_data and inventory_data[0]['items'] is not None:
-    inventory_items = inventory_data[0]['items']['items']
+  if inventory_data:
+    inventory_record = inventory_data[0]
+    inventory_items = inventory_record.get('items', {}).get('items', [])
+  else:
+    # User does not have an inventory, so initialize an empty list for items
+    inventory_items = []
 
   # Check if the item already exists in the inventory
   item_exists = next(
@@ -49,8 +44,16 @@ async def item_write(discord_id: int, item_id: int, amount: int):
   # Prepare the updated inventory data
   updated_inventory_data = {'items': {'items': inventory_items}}
 
-  # Write the updated items back to the inventory
-  await asyncio.get_event_loop().run_in_executor(
-      None,
-      lambda: supabase.table('Inventory').update(updated_inventory_data).eq(
-          'discord_id', discord_id).execute())
+  # If inventory record exists, update it
+  if inventory_data:
+    await asyncio.get_event_loop().run_in_executor(
+        None,
+        lambda: supabase.table('Inventory').update(updated_inventory_data).eq(
+            'discord_id', discord_id).execute())
+  else:
+    # Create a new inventory record for the user
+    updated_inventory_data[
+        'discord_id'] = discord_id  # Ensure the discord_id is included
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Inventory').insert(updated_inventory_data
+                                                         ).execute())

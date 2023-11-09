@@ -149,7 +149,7 @@ def leaderboard():
 
 def fetch_leaderboard():
   results = supabase.table('Players').select('*').order(
-      'level', desc=True).limit(10).execute()
+      'level', desc=True).limit(100).execute()
   if results.data:
     return results.data
   else:
