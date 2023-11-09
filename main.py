@@ -52,6 +52,7 @@ async def command_prefix(bot, message):
 
 intents = nextcord.Intents.default()
 intents.message_content = True
+intents.members = True  # Enables the member intent
 
 
 async def get_prefix(bot, message):
@@ -585,6 +586,9 @@ async def profile(ctx, *, user: nextcord.User = None):
   embed = nextcord.Embed(title="Rookie Adventurer", color=embed_color)
   embed.set_author(name=f"{username}'s Profile", icon_url=avatar_url)
 
+  total_stats = user_data['atk'] + user_data['def'] + user_data[
+      'magic'] + user_data['magic_def']
+
   embed.add_field(
       name="__Status:__",
       value=f"**Level:** {user_data['level']}\n"
@@ -599,7 +603,9 @@ async def profile(ctx, *, user: nextcord.User = None):
                   value=f"**ATK:** {user_data['atk']}\n"
                   f"**DEF:** {user_data['def']}\n"
                   f"**MAGIC:** {user_data['magic']}\n"
-                  f"**MAGIC DEF:** {user_data['magic_def']}\n",
+                  f"**MAGIC DEF:** {user_data['magic_def']}\n"
+                  f"**STAT SCORE:** {total_stats}\n"
+                  f"**FREE POINTS:** (In-Dev)\n",
                   inline=True)
 
   embed.add_field(name="__Equipment:__", value="N/A", inline=False)
@@ -769,7 +775,10 @@ async def buy(ctx, *args):
       None, lambda: supabase.table('Items').select('*').ilike(
           'item_displayname', f'%{item_display_name}%').execute())
 
-  if not item_response.data:
+  item_data = item_response.data[0]
+  buyable = item_data['buyable']
+
+  if not buyable or not item_response.data:
     await ctx.send("Item not found or amount invalid.")
     return
 
