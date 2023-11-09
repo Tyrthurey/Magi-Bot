@@ -50,7 +50,7 @@ async def check_inventory(discord_id: int, search_id: int, search_type: str):
         } if search_type == 'item' else {},
         'equipments': {
             'equipments': []
-        } if search_type == 'equipment' else {}
+        } if search_type == 'equipment' or search_type else {}
     }
     await asyncio.get_event_loop().run_in_executor(
         None,
