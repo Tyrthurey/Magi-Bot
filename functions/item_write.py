@@ -3,7 +3,7 @@ from supabase import create_client, Client
 import os
 from datetime import datetime
 
-# Assuming environment variables are set for Supabase URL and Keys
+# Assuming environment variables are set for Supabase URL and Key
 url = os.getenv("SUPABASE_URL") or ""
 key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
