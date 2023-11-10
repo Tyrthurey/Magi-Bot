@@ -1,4 +1,3 @@
-
 import asyncio
 import logging
 import os
@@ -6,7 +5,6 @@ import nextcord
 from nextcord.ext import commands
 from supabase import Client, create_client
 from dotenv import load_dotenv
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -44,7 +42,8 @@ async def shopping(ctx):
         value=
         f"**Rarity:** {item['rarity']}\n**Description:** {item['description']}\n**Price:** {item['price']} Gold",
         inline=False)
-
+  embed.set_author(name=ctx.author.display_name,
+                   icon_url=ctx.author.avatar.url)
   await ctx.send(embed=embed)
 
 

@@ -33,16 +33,16 @@ from functions.item_write import item_write
 from functions.load_settings import load_settings, command_prefix, get_prefix, get_embed_color
 from functions.cooldown_manager import cooldown_manager_instance
 
-from commands.hunt import setup as hunt_setup
-from commands.shop import setup as shop_setup
-from commands.buy import setup as buy_setup
-from commands.hi import setup as hi_setup
 from commands.website import setup as web_setup
 from commands.admin import setup as admin_setup
 from commands.help import setup as help_setup
+from commands.hunt import setup as hunt_setup
+from commands.shop import setup as shop_setup
+from commands.buy import setup as buy_setup
 from commands.dog import setup as dog_setup
 from commands.cat import setup as cat_setup
 from commands.use import setup as use_setup
+from commands.hi import setup as hi_setup
 
 load_dotenv()
 
@@ -402,16 +402,21 @@ async def leaderboard(ctx):
 @bot.command(name="cooldowns",
              aliases=["cd"],
              help="Displays your current command cooldowns.")
-async def cooldowns(ctx):
+async def cooldowns(ctx, *, user: nextcord.User = None):
   embed_color = await get_embed_color(ctx.guild.id)
+  # If no user is specified, show the profile of the author of the message
+  if user is None:
+    user = ctx.author
+
+  user_id = user.id
+  username = user.display_name
+  avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
   guild_settings = await load_settings(ctx.guild.id)
   guild_prefix = guild_settings.get(
       'prefix', '::')  # Use the default prefix if not found in the settings
 
   embed = nextcord.Embed(title='Cooldowns', color=embed_color)
-  embed.set_author(name=ctx.author.display_name,
-                   icon_url=ctx.author.avatar.url
-                   if ctx.author.avatar else ctx.author.default_avatar.url)
+  embed.set_author(name=username, icon_url=avatar_url)
 
   # Loop through all commands and get cooldowns from the CooldownManager
   for command in bot.commands:
@@ -421,7 +426,7 @@ async def cooldowns(ctx):
 
     # Get the remaining cooldown for this command and user
     cooldown_remaining = cooldown_manager_instance.get_cooldown(
-        ctx.author.id, command.name)
+        user_id, command.name)
 
     if cooldown_remaining > 0:
       # Command is on cooldown
@@ -444,11 +449,15 @@ async def cooldowns(ctx):
 @bot.command(name="inventory",
              aliases=["inv"],
              help="Displays the user's inventory.")
-async def inventory(ctx):
+async def inventory(ctx, *, user: nextcord.User = None):
   embed_color = await get_embed_color(ctx.guild.id)
-  user_id = ctx.author.id
-  username = ctx.author.display_name
-  avatar_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
+  # If no user is specified, show the profile of the author of the message
+  if user is None:
+    user = ctx.author
+
+  user_id = user.id
+  username = user.display_name
+  avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
 
   # Use the new get_items function to fetch the user's items
   items = await get_items(user_id)

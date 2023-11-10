@@ -99,6 +99,10 @@ async def buying_error(ctx, error):
     await ctx.send(
         f"This command is on cooldown. You can use it again in `{error.retry_after:.2f}` seconds. \nPlease use `buy <item> <amount>` to prevent spam!"
     )
+  elif IndexError:
+    await ctx.send(
+        "Invalid item name. Please use `buy <item> <amount>` to buy an item.\nLookup items using `shop`"
+    )
   else:
     await ctx.send(f"An error occurred: {error}")
 
