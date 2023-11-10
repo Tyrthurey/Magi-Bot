@@ -31,6 +31,7 @@ from commands.heal import healing
 from functions.check_inventory import check_inventory
 from functions.item_write import item_write
 from functions.load_settings import load_settings, command_prefix, get_prefix, get_embed_color
+from functions.cooldown_manager import cooldown_manager_instance
 
 from commands.hunt import setup as hunt_setup
 from commands.shop import setup as shop_setup
@@ -39,6 +40,9 @@ from commands.hi import setup as hi_setup
 from commands.website import setup as web_setup
 from commands.admin import setup as admin_setup
 from commands.help import setup as help_setup
+from commands.dog import setup as dog_setup
+from commands.cat import setup as cat_setup
+from commands.use import setup as use_setup
 
 load_dotenv()
 
@@ -67,9 +71,8 @@ async def save_settings(guild_id: int, new_settings):
       current_settings = existing.data[0]['settings']
       updated_settings = {**current_settings, **new_settings}
       # Update the existing record with the merged settings
-      await supabase.table('ServerSettings').update({
-          'settings':
-          updated_settings
+      supabase.table('ServerSettings').update({
+          'settings': updated_settings
       }).eq('server_id', guild_id).execute()
     else:
       # If there are no settings for this server, use default values and include the new settings
@@ -191,26 +194,6 @@ async def on_message(message):
 
   # Process commands (if any)
   await bot.process_commands(message)
-
-
-# Bot command to send a hello message
-@bot.command(name="use", help="Use an item. (UNDER CONSTRUCTION)")
-async def use(ctx):
-  await ctx.send('"use" doesnt work for now, please use heal!')
-
-
-# Bot command to send a random dog picture
-@bot.command(name="dog", help="Sends a random dog pic.")
-async def dog(ctx):
-  async with aiohttp.ClientSession() as session:
-    async with session.get(
-        "https://dog.ceo/api/breeds/image/random") as response:
-      if response.status == 200:
-        data = await response.json()
-        image_link = data.get("message", "No image found.")
-        await ctx.send(image_link)
-      else:
-        await ctx.send("Couldn't fetch a dog image. :(")
 
 
 # Bot command to send a random gif
@@ -421,7 +404,6 @@ async def leaderboard(ctx):
              help="Displays your current command cooldowns.")
 async def cooldowns(ctx):
   embed_color = await get_embed_color(ctx.guild.id)
-  # Fetch the prefix from Supabase for the current guild
   guild_settings = await load_settings(ctx.guild.id)
   guild_prefix = guild_settings.get(
       'prefix', '::')  # Use the default prefix if not found in the settings
@@ -431,27 +413,25 @@ async def cooldowns(ctx):
                    icon_url=ctx.author.avatar.url
                    if ctx.author.avatar else ctx.author.default_avatar.url)
 
-  # Loop through all commands
+  # Loop through all commands and get cooldowns from the CooldownManager
   for command in bot.commands:
-    # Skip if the command is hidden or does not have a cooldown
-    if command.hidden or not hasattr(command._buckets, '_cooldown'):
+    # Skip if the command is hidden
+    if command.hidden:
       continue
 
-    # Get the bucket for the command
-    bucket = command._buckets.get_bucket(ctx.message)
+    # Get the remaining cooldown for this command and user
+    cooldown_remaining = cooldown_manager_instance.get_cooldown(
+        ctx.author.id, command.name)
 
-    # Check if there's a cooldown to report
-    if bucket and bucket.get_tokens() < bucket.rate:
-      retry_after = bucket.get_retry_after()
-      if retry_after:
-        # Command is on cooldown
-        minutes, seconds = divmod(int(retry_after), 60)
-        hours, minutes = divmod(minutes, 60)
-        cooldown_message = f":x: {hours}h {minutes}m {seconds}s remaining"
-        # Add the command and its cooldown status to the embed
-        embed.add_field(name=f"{guild_prefix}{command.name}",
-                        value=f"{cooldown_message}",
-                        inline=False)
+    if cooldown_remaining > 0:
+      # Command is on cooldown
+      minutes, seconds = divmod(int(cooldown_remaining), 60)
+      hours, minutes = divmod(minutes, 60)
+      cooldown_message = f":x: {hours}h {minutes}m {seconds}s remaining"
+      # Add the command and its cooldown status to the embed
+      embed.add_field(name=f"{guild_prefix}{command.name}",
+                      value=cooldown_message,
+                      inline=False)
 
   # If the embed has no fields, it means no commands are on cooldown
   if len(embed.fields) == 0:
@@ -552,6 +532,9 @@ try:
   web_setup(bot)
   help_setup(bot)
   admin_setup(bot)
+  dog_setup(bot)
+  cat_setup(bot)
+  use_setup(bot)
   keep_alive()
 
   bot.run(token)

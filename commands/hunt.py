@@ -7,6 +7,7 @@ from nextcord.ext import commands
 from supabase import Client, create_client
 from dotenv import load_dotenv
 from functions.item_write import item_write
+from functions.cooldown_manager import cooldown_manager_instance as cooldowns
 
 logging.basicConfig(level=logging.INFO)
 
@@ -19,10 +20,22 @@ supabase: Client = create_client(url, key)
 
 async def hunting(ctx):
   user_id = ctx.author.id
+  command_name = ctx.command.name
+  cooldown_remaining = cooldowns.get_cooldown(user_id, command_name)
+
+  if cooldown_remaining > 0:
+    await ctx.send(
+        f"This command is on cooldown. You can use it again in `{cooldown_remaining:.2f}` seconds."
+    )
+    return
+
+  # Set the cooldown for the hunt command
+  cooldowns.set_cooldown(user_id, command_name, 60)
 
   # Retrieve the current user data
-  user_data_response = supabase.table('Players').select('*').eq(
-      'discord_id', user_id).execute()
+  user_data_response = await asyncio.get_event_loop().run_in_executor(
+    None, lambda: supabase.table('Players').select('*').eq(
+        'discord_id', user_id).execute())
   if not user_data_response.data:
     await ctx.send("You do not have a profile yet.")
     return
@@ -270,8 +283,6 @@ async def hunting(ctx):
 @commands.command(name="hunt",
                   aliases=["h", "hunting"],
                   help="Go on a hunting adventure and gain experience.")
-@commands.cooldown(1, 60, commands.BucketType.user
-                   )  # Cooldown: 1 time per 60 seconds per user
 async def hunt(ctx):
   await hunting(ctx)
 
