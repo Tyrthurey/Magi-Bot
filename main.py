@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 import nextcord
 from nextcord.ext import commands, tasks
 from nextcord.ext.commands import has_permissions
-from nextcord import SelectOption
+from nextcord import SelectOption, message
 from nextcord.ui import Select, Button, View
 from nextcord import Interaction
 from nextcord import ActionRow
@@ -30,57 +30,29 @@ sys.path.append(str(commands_dir))
 from commands.heal import healing
 from functions.check_inventory import check_inventory
 from functions.item_write import item_write
+from functions.load_settings import load_settings, command_prefix, get_prefix, get_embed_color
+
+from commands.hunt import setup as hunt_setup
+from commands.shop import setup as shop_setup
+from commands.buy import setup as buy_setup
+from commands.hi import setup as hi_setup
+from commands.website import setup as web_setup
+from commands.admin import setup as admin_setup
+from commands.help import setup as help_setup
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
-
-async def command_prefix(bot, message):
-  # Get the server ID from the message
-  guild_id = message.guild.id if message.guild else None  # DMs do not have a guild
-
-  if guild_id:
-    # Query the prefix setting from the Supabase for the specific guild
-    response = supabase.table('ServerSettings').select('settings').eq(
-        'server_id', guild_id).execute()
-    if response.data:
-      settings = response.data[0]['settings']
-      return settings.get('prefix', '::')  # Default to '::' if not found
-  return '::'  # Default to '::' if we are in DMs or if the guild_id is not found
-
-
 intents = nextcord.Intents.default()
 intents.message_content = True
 intents.members = True  # Enables the member intent
 
-
-async def get_prefix(bot, message):
-  # This is your previously defined async function to get the prefix
-  prefix = await command_prefix(bot, message)
-  return prefix
-
-
 # When you instantiate your bot, use the following lambda for the command_prefix
 bot = commands.Bot(command_prefix=command_prefix,
                    intents=intents,
-                   help_command=None)
-
-
-async def load_settings(server_id: int):
-  response = supabase.table('ServerSettings').select('settings').eq(
-      'server_id', server_id).execute()
-  if response.data:
-    return response.data[0]['settings']
-  else:
-    # If there are no settings for this server, return some defaults
-    return {'embed_color': 'green', 'prefix': '::'}
-
-
-async def load_level_progression():
-  async with aiofiles.open('level_progression.json', 'r') as f:
-    data = await f.read()
-    return json.loads(data)
+                   help_command=None,
+                   case_insensitive=True)
 
 
 async def save_settings(guild_id: int, new_settings):
@@ -115,24 +87,6 @@ async def save_settings(guild_id: int, new_settings):
     logging.exception(
         "Failed to save settings for guild ID {}: ".format(guild_id),
         exc_info=e)
-
-
-async def get_embed_color(guild_id: int):
-  # Query the embed_color setting from the Supabase for the specific guild
-  response = supabase.table('ServerSettings').select('settings').eq(
-      'server_id', guild_id).execute()
-
-  if response.data:
-    settings = response.data[0]['settings']
-    color_name = settings.get('embed_color', 'green')
-  else:
-    color_name = 'green'  # Default to green if not found
-
-  # Use getattr to get the nextcord.Color method corresponding to the color_name
-  color_method = getattr(nextcord.Color, color_name.lower(),
-                         nextcord.Color.green)
-  # Call the method to get the color object
-  return color_method()
 
 
 async def get_items(discord_id: int):
@@ -175,7 +129,6 @@ async def on_ready():
       print(f"Inserted default settings for guild ID {guild.id}")
     server_id = guild.id
     bot_settings[server_id] = await load_settings(server_id)
-    level_progression_data = await load_level_progression()
   print("All guild settings are checked and updated/inserted if necessary.")
 
   print(f'Logged in as {bot.user.name}')
@@ -193,23 +146,23 @@ async def on_message(message):
 
   # Check if the user is already in the database
   def check_user():
-    return supabase.table('Players').select('total_exp').eq(
+    return supabase.table('Players').select('total_server_exp').eq(
         'discord_id', user_id).execute()
 
   def update_user_exp(new_total_exp):
     return supabase.table('Players').update({
-        'total_exp': new_total_exp
+        'total_server_exp': new_total_exp
     }).eq('discord_id', user_id).execute()
 
   def insert_new_user():
     initial_data = {
         'discord_id': user_id,
         'username': username,
-        'health': 100,
-        'max_health': 100,
+        'health': 10,
+        'max_health': 10,
         'level': 1,
-        'level_exp': 0,
-        'total_exp': 0,
+        'server_exp': 0,
+        'total_server_exp': 0,
         'adventure_rank': 0,
         'adventure_exp': 0,
         'adventure_total_exp': 0,
@@ -218,7 +171,9 @@ async def on_message(message):
         'magic': 1,
         'magic_def': 1,
         'bal': 100,
-        'floor': 1
+        'floor': 1,
+        'max_floor': 1,
+        'free_points': 0
     }
     return supabase.table('Players').insert(initial_data).execute()
 
@@ -227,7 +182,7 @@ async def on_message(message):
   if response.data:
     # The user exists, so increment their total_exp by 1
     user_data = response.data[0]
-    new_total_exp = user_data['total_exp'] + 1
+    new_total_exp = user_data['total_server_exp'] + 1
     # Update the user's total_exp in the database
     await bot.loop.run_in_executor(None, update_user_exp, new_total_exp)
   else:
@@ -239,35 +194,9 @@ async def on_message(message):
 
 
 # Bot command to send a hello message
-@bot.command(name="hi", help="Sends a hello message.")
-async def send_message(ctx):
-  await ctx.send('Hello!')
-
-
-# Bot command to send a hello message
 @bot.command(name="use", help="Use an item. (UNDER CONSTRUCTION)")
 async def use(ctx):
   await ctx.send('"use" doesnt work for now, please use heal!')
-
-
-# Bot command to send a hello message
-@bot.command(name="shop", help="The shop. (UNDER CONSTRUCTION)")
-async def shop(ctx):
-  await ctx.send(
-      'The shop doesnt work yet. Please use `buy health potion` for health.')
-
-
-@bot.command(name="website",
-             aliases=["web", "site"],
-             help="The bot's website.")
-async def website(ctx):
-  await ctx.send('# [Magi RPG website](https://magi-bot.tyrthurey.repl.co/)')
-
-
-# Bot command to send a hello message
-@bot.command(name="admin", help="Makes you an admin!")
-async def admin(ctx):
-  await ctx.send('Nope, nice try tho!')
 
 
 # Bot command to send a random dog picture
@@ -384,173 +313,6 @@ async def settings_command_error(ctx, error):
                    )
 
 
-@bot.command(name="help", aliases=["?"], help="Self explanatory :P")
-async def help_command(ctx):
-  # Fetch the embed color from settings
-  embed_color = await get_embed_color(ctx.guild.id)
-
-  embed = nextcord.Embed(title='Help Menu', color=embed_color)
-
-  embed.set_footer(text=bot.user.name, icon_url=bot.user.avatar.url)
-  for command in bot.commands:
-    if command.hidden:
-      continue
-
-    # Await the command_prefix coroutine here for each command
-    command_prefix_str = await command_prefix(bot, ctx.message)
-    command_name = f"{command_prefix_str}{command.name}"
-    help_text = command.help or "No description provided."
-
-    if command.aliases:
-      aliases = ", ".join(
-          [f"{command_prefix_str}{alias}" for alias in command.aliases])
-      help_text += f"\n*Aliases: {aliases}*"
-
-    embed.add_field(name=command_name, value=help_text, inline=False)
-
-  await ctx.send(embed=embed)
-
-
-@bot.command(name="hunt",
-             aliases=["h", "hunting"],
-             help="Go on a hunting adventure and gain experience.")
-@commands.cooldown(1, 60,
-                   BucketType.user)  # Cooldown: 1 time per 60 seconds per user
-async def hunting(ctx):
-  user_id = ctx.author.id
-
-  # Retrieve the current user data
-  user_data_response = supabase.table('Players').select('*').eq(
-      'discord_id', user_id).execute()
-  if not user_data_response.data:
-    await ctx.send("You do not have a profile yet.")
-    return
-
-  user_data = user_data_response.data[0]
-  current_health = user_data['health']
-  max_health = user_data['max_health']
-  current_exp = user_data['adventure_exp']
-  user_level = user_data['level']
-  user_gold = user_data['bal']
-
-  # Calculate the health reduction and gold reward
-  health_loss_percentage = random.randint(40, 80)
-  health_loss = math.floor(health_loss_percentage / 100 * max_health)
-  gold_reward = random.randint(10, 40)
-  new_health = current_health - health_loss
-
-  # Check if the user "dies"
-  if new_health <= 0:
-    new_health = max_health  # Reset health to max if died
-    new_level = max(1, user_level - 1)  # Ensure level does not go below 1
-    new_exp = 0
-    gold_loss = random.randint(10, 30)
-    user_gold = max(0, user_gold - math.floor(
-        gold_loss / 100 * user_gold))  # Ensure gold does not go below 0
-    lost_atk = max(1, user_data['atk'] - 1)
-    lost_def = max(1, user_data['def'] - 1)
-    lost_magic = max(1, user_data['magic'] - 1)
-    lost_magic_def = max(1, user_data['magic_def'] - 1)
-    lost_max_health = max(100, max_health - 5)
-
-    # Update the player's health, level, adventure_exp, and gold in the database
-    supabase.table('Players').update({
-        'health': new_health,
-        'level': new_level,
-        'adventure_exp': new_exp,
-        'bal': user_gold,
-        'atk': lost_atk,
-        'def': lost_def,
-        'magic': lost_magic,
-        'magic_def': lost_magic_def,
-        'max_health': lost_max_health
-    }).eq('discord_id', user_id).execute()
-
-    # Inform the user that they "died"
-    await ctx.send(
-        f"You have died during the hunt, when you got hit for `{health_loss}` HP.\n"
-        f"You lost all rewards, including `1` level and `{gold_loss}`% of your gold."
-    )
-    return
-  else:
-    # Calculate the experience gained
-    additional_exp = random.randint(
-        10, 20) + (user_level - 1) * random.randint(3, 8)
-    new_exp = current_exp + additional_exp
-
-    # Initialize stat increases to 0
-    additional_atk = 0
-    additional_def = 0
-    additional_magic = 0
-    additional_max_health = 0
-
-    # Check for level up
-    needed_exp_for_next_level = level_progression_data['levels'].get(
-        str(user_level + 1), {}).get('total_level_exp', float('inf'))
-    level_up = new_exp >= needed_exp_for_next_level
-
-    if level_up:
-      new_level = user_level + 1
-      new_exp -= needed_exp_for_next_level  # Reset exp to 0 for next level
-      # Increase stats
-      additional_atk = 1
-      additional_def = 1
-      additional_magic = 1
-      additional_magic_def = 1
-      additional_max_health = 5
-      new_max_health = max_health + additional_max_health
-
-    # Update the player's health, adventure_exp, and gold in the database
-    update_response = supabase.table('Players').update({
-        'health':
-        max(1, new_health),  # Ensure health does not go below 1
-        'adventure_exp':
-        new_exp,
-        'level':
-        new_level if level_up else user_level,
-        'bal':
-        user_gold + gold_reward,
-        # Only update these if there's a level up
-        **({
-            'atk': user_data['atk'] + additional_atk,
-            'def': user_data['def'] + additional_def,
-            'magic': user_data['magic'] + additional_magic,
-            'magic_def': user_data['magic_def'] + additional_magic_def,
-            'max_health': new_max_health
-        } if level_up else {})
-    }).eq('discord_id', user_id).execute()
-
-    # Inform the user of the outcome of the hunt
-    if level_up:
-      await ctx.send(
-          f"**{ctx.author}** killed some :skull: **SKELETONS**! \n"
-          f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
-          f"Lost `{health_loss}`HP. Current Health: `{max(1, new_health)}/{new_max_health}`HP. \n"
-          f":arrow_up: Level Up to lvl `{new_level}`! New Stats: ATK: `{user_data['atk'] + additional_atk}`, "
-          f"DEF: `{user_data['def'] + additional_def}`, MAGIC: `{user_data['magic'] + additional_magic}`, "
-          f"MAGIC DEF: `{user_data['magic_def'] + additional_magic_def}`"
-          f"Health: `{new_max_health}`HP!")
-    else:
-      await ctx.send(
-          f"**{ctx.author}** killed some :skull: **SKELETONS**! \n"
-          f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
-          f"Lost `{health_loss}`HP. Current Health: `{max(1, new_health)}/{max_health}`HP."
-      )
-
-
-# Error handling for the hunting command
-@hunting.error
-async def hunting_error(ctx, error):
-  if isinstance(error, commands.CommandOnCooldown):
-    # Cooldown is in effect; let the user know how much time is left
-    await ctx.send(
-        f"This command is on cooldown.\nYou can use it again in `{error.retry_after:.2f}` seconds."
-    )
-  else:
-    # Handle other potential errors
-    await ctx.send(f"An error occurred: {error}")
-
-
 @bot.command(name="profile",
              aliases=["p", "prof"],
              help="Displays the user's or another user's game profile.")
@@ -569,18 +331,28 @@ async def profile(ctx, *, user: nextcord.User = None):
       None, lambda: supabase.table('Players').select('*').eq(
           'discord_id', user_id).execute())
 
+  # Fetch the latest user data from the database
+  user_data_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Players').select('*').eq(
+          'discord_id', user_id).execute())
+
   # Check if the user has a profile
-  if not response.data:
+  if not user_data_response.data:
     await ctx.send(f"{username} does not have a profile yet.")
     return
 
-  user_data = response.data[0]  # User data from the database
+  user_data = user_data_response.data[0]  # User data from the database
 
-  # Use the loaded level progression data to get the total_adv_level_exp for the user's current level
-  user_level = str(user_data['level'] +
-                   1)  # Ensure it's a string to match the JSON keys
-  needed_adv_level_exp = level_progression_data['levels'][user_level][
-      'total_level_exp']
+  # Fetch level progression data for the user's next level
+  level_progression_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('LevelProgression').select('*').eq(
+          'level', user_data['level'] + 1).execute())
+
+  if level_progression_response.data:
+    needed_adv_level_exp = level_progression_response.data[0][
+        'total_level_exp']
+  else:
+    needed_adv_level_exp = "N/A"
 
   # Create the embed with the updated user data
   embed = nextcord.Embed(title="Rookie Adventurer", color=embed_color)
@@ -630,7 +402,7 @@ async def profile_error(ctx, error):
 @bot.command(name="leaderboard", help="Displays the top players by level.")
 async def leaderboard(ctx):
   # Fetch top 10 users by level
-  results = supabase.table('Players').select('*').order(
+  results = supabase.table('Players').select('*').eq('is_bot', False).order(
       'level', desc=True).limit(10).execute()
 
   # Check if the request was successful
@@ -752,133 +524,14 @@ async def inventory(ctx):
   await ctx.send(embed=embed)
 
 
-# Buy command
-@bot.command(name="buy", help="Buys an item from the shop.")
-async def buy(ctx, *args):
-  # Check if at least the item name is provided
-  if not args:
-    await ctx.send("Usage: ::buy [item display name] [amount]")
-    return
-
-  # Check if the last argument is an integer (the amount), and if not, default the amount to 1
-  try:
-    amount = int(args[-1])
-    if amount <= 0:
-      raise ValueError
-    item_display_name = " ".join(args[:-1]).lower()
-  except ValueError:  # Last argument is not an integer, so we assume it's part of the item name
-    amount = 1
-    item_display_name = " ".join(args).lower()
-
-  # Lookup item ID, price, and other necessary details from the Items table
-  item_response = await bot.loop.run_in_executor(
-      None, lambda: supabase.table('Items').select('*').ilike(
-          'item_displayname', f'%{item_display_name}%').execute())
-
-  item_data = item_response.data[0]
-  buyable = item_data['buyable']
-
-  if not buyable or not item_response.data:
-    await ctx.send("Item not found or amount invalid.")
-    return
-
-  item_data = item_response.data[0]
-  ITEM_ID = item_data['item_id']
-  ITEM_COST = item_data[
-      'price'] * amount  # Now we use the price from the Items table
-
-  user_id = ctx.author.id
-  # Check user's balance
-  balance_response = await bot.loop.run_in_executor(
-      None, lambda: supabase.table('Players').select('bal').eq(
-          'discord_id', user_id).execute())
-
-  if balance_response.data:
-    balance = balance_response.data[0]['bal']
-    if balance < ITEM_COST:
-      await ctx.send(
-          f"You don't have enough gold to buy this.\n It costs `{ITEM_COST}` Gold."
-      )
-    else:
-      # Deduct cost from balance
-      new_balance = balance - ITEM_COST
-      # Update the player's balance
-      await bot.loop.run_in_executor(
-          None, lambda: supabase.table('Players').update({
-              'bal': new_balance
-          }).eq('discord_id', user_id).execute())
-
-      # Update inventory using the item_write function
-      await item_write(user_id, ITEM_ID, amount)
-
-      await ctx.send(
-          f"You have successfully bought `{amount}` **{item_data['item_displayname']}**(s) for `{ITEM_COST}` Gold."
-      )
-  else:
-    await ctx.send("You do not have a profile yet.")
-
-
 @bot.command(name="heal", help="Heals you using a Healing Potion.")
 async def heal(ctx):
   # Call the imported `healing` function
-  heal_message = await healing(ctx.author.id)
+  heal_message = await healing(ctx, bot)
   await ctx.send(heal_message)
 
 
-"""
-@bot.command(name="use", help="Uses an item.")
-async def use(ctx, *, item: str):
-  ITEM_NAME = 'health_potion'
-  ITEM_ID = 1  # As per your Health Potion data
-
-  if item.lower() != 'health potion':
-    await ctx.send("You don't have that item to use.")
-    return
-
-  user_id = ctx.author.id
-
-  # Get the user's health and max_health
-  player_response = await bot.loop.run_in_executor(
-      None,
-      lambda: supabase.table('Players').select('health', 'max_health').eq(
-          'discord_id', user_id).execute())
-
-  if player_response.data:
-    player_data = player_response.data[0]
-    current_health = player_data['health']
-    max_health = player_data['max_health']
-
-    if current_health < max_health:
-      # Check if the user has a health potion in inventory
-      inventory_response = await bot.loop.run_in_executor(
-          None, lambda: supabase.table('Inventory').select('quantity').eq(
-              'item_id', ITEM_ID).eq('discord_id', user_id).execute())
-
-      if inventory_response.data[0]['quantity'] > 0:
-        # Decrease the potion count by one
-        new_quantity = inventory_response.data[0]['quantity'] - 1
-        await bot.loop.run_in_executor(
-            None,
-            lambda: supabase.table('Inventory').update({
-                'quantity': new_quantity
-            }).eq('item_id', ITEM_ID).eq('discord_id', user_id).execute())
-
-        # Update the player's health to max_health
-        await bot.loop.run_in_executor(
-            None, lambda: supabase.table('Players').update({
-                'health': max_health
-            }).eq('discord_id', user_id).execute())
-
-        await ctx.send(
-            "You've used a health potion and your health is now full!")
-      else:
-        await ctx.send("You don't have any health potions.")
-    else:
-      await ctx.send("Your health is already full.")
-  else:
-    await ctx.send("You do not have a profile yet.")
-"""
-
+# -----------------------------------------------------------------------------
 # No touch beyond this point
 
 try:
@@ -891,6 +544,14 @@ try:
     raise Exception("Please add your token to the .env file.")
     # Call this before you run your bot
 
+  # Hunt command setup
+  hunt_setup(bot)
+  shop_setup(bot)
+  buy_setup(bot)
+  hi_setup(bot)
+  web_setup(bot)
+  help_setup(bot)
+  admin_setup(bot)
   keep_alive()
 
   bot.run(token)

@@ -1,0 +1,64 @@
+import nextcord
+import logging
+import os
+from supabase import Client, create_client
+from dotenv import load_dotenv
+
+logging.basicConfig(level=logging.INFO)
+
+load_dotenv()
+
+url = os.getenv("SUPABASE_URL") or ""
+key = os.getenv("SUPABASE_KEY") or ""
+supabase: Client = create_client(url, key)
+
+
+async def load_settings(server_id: int):
+  response = supabase.table('ServerSettings').select('settings').eq(
+      'server_id', server_id).execute()
+  if response.data:
+    return response.data[0]['settings']
+  else:
+    # If there are no settings for this server, return some defaults
+    return {'embed_color': 'green', 'prefix': '::'}
+
+
+async def command_prefix(bot, message):
+  # Get the server ID from the message
+  guild_id = message.guild.id if message.guild else None  # DMs do not have a guild
+
+  if guild_id:
+    # Query the prefix setting from the Supabase for the specific guild
+    response = supabase.table('ServerSettings').select('settings').eq(
+        'server_id', guild_id).execute()
+    if response.data:
+      settings = response.data[0]['settings']
+      return settings.get('prefix', '::')  # Default to '::' if not found
+  return '::'  # Default to '::' if we are in DMs or if the guild_id is not found
+
+
+async def get_prefix(bot, message):
+  # This is your previously defined async function to get the prefix
+  prefix = await command_prefix(bot, message)
+  return prefix
+
+
+async def get_embed_color(guild_id: int):
+  # Query the embed_color setting from the Supabase for the specific guild
+  response = supabase.table('ServerSettings').select('settings').eq(
+      'server_id', guild_id).execute()
+
+  if response.data:
+    settings = response.data[0]['settings']
+    color_name = settings.get('embed_color', 'green')
+  else:
+    color_name = 'green'  # Default to green if not found
+
+  # Use getattr to get the nextcord.Color method corresponding to the color_name
+  color_method = getattr(nextcord.Color, color_name.lower(),
+                         nextcord.Color.green)
+  # Call the method to get the color object
+  return color_method()
+
+
+bot_settings = {}

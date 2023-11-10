@@ -127,7 +127,7 @@ HTML_TEMPLATE = """
             });
         }
 
-        setInterval(updateLeaderboard, 100000); // Update every 10 seconds
+        setInterval(updateLeaderboard, 300000); // Update every 300 seconds
         updateLeaderboard(); // Initial update on page load
         
     </script>
@@ -148,12 +148,15 @@ def leaderboard():
 
 
 def fetch_leaderboard():
-  results = supabase.table('Players').select('*').order(
-      'level', desc=True).limit(100).execute()
+  # Query the database, filtering out bots and limiting to top 10 human players
+  results = supabase.table('Players').select('*').eq('is_bot', False).order(
+      'level', desc=True).limit(10).execute()
+
   if results.data:
-    return results.data
+    return results.data  # Already limited to top 10 and ordered by level
   else:
     return []
+
 
 
 def run():

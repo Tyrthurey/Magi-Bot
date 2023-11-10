@@ -1,0 +1,29 @@
+This is just a to-do list of possible projects and areas to work on.
+
+  Rebuild combat to incorporate discrete values instead of percentages.
+ 
+  Adjust profiles to balance stats with new combat system.
+ 
+  Seperate leveling up and xp handling into it's own functions.
+    The level_up() function pulls the player's profile,
+    double checks which level up they are getting,
+    gives the player whatever choices for how they want to spend
+    their level up points (or however you handle leveling up),
+    and writes those changes back to the DB.
+ 
+  Create an "add_xp(discord_ID, exp gained)" function.
+    Within that function, you pull the player's profile,
+    add the exp, check if it exceeds the next level mile stone,
+    call a level_up() if appropriate, and returns the profile to the database.
+
+  Account for and track how to prevent one function that calls another function
+  from overwriteing the changes any nested function(s) make.
+
+  
+
+To-do tyr
+---
+there should be like a 1/10 chance for something you have 3x the stats of to get the drop on you
+quests
+classes
+floor 2
