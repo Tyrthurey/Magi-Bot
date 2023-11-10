@@ -27,3 +27,5 @@ there should be like a 1/10 chance for something you have 3x the stats of to get
 quests
 classes
 floor 2
+delete messages after a certain amount of time
+maybe

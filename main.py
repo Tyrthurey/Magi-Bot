@@ -43,6 +43,7 @@ from commands.dog import setup as dog_setup
 from commands.cat import setup as cat_setup
 from commands.use import setup as use_setup
 from commands.hi import setup as hi_setup
+from commands.sell import setup as sell_setup
 
 load_dotenv()
 
@@ -544,6 +545,7 @@ try:
   dog_setup(bot)
   cat_setup(bot)
   use_setup(bot)
+  sell_setup(bot)
   keep_alive()
 
   bot.run(token)
