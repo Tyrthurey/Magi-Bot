@@ -13,14 +13,15 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
+# Function to load settings including channel ID
 async def load_settings(server_id: int):
   response = supabase.table('ServerSettings').select('settings').eq(
       'server_id', server_id).execute()
   if response.data:
     return response.data[0]['settings']
   else:
-    # If there are no settings for this server, return some defaults
-    return {'embed_color': 'green', 'prefix': '::'}
+    # Include a 'channel_id' setting with a default value of None
+    return {'embed_color': 'green', 'prefix': '::', 'channel_id': None}
 
 
 async def command_prefix(bot, message):

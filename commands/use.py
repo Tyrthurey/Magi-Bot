@@ -71,7 +71,7 @@ async def using(ctx, *args):
       await item_write(user_id, ITEM_ID, -1)
 
       # Update the player's cooldowns
-      cooldown_manager_instance.reduce_all_cooldowns(user_id, 50)
+      cooldown_manager_instance.reduce_all_cooldowns(user_id, 55)
 
       await ctx.send(
           f"**{ctx.author}** is SUPERCHARGED! That :coffee: `coffee` is probably bad for their health though!"
@@ -82,7 +82,7 @@ async def using(ctx, *args):
     await ctx.send("This item cannot be used. Duh.\nCheck your spelling.")
 
 
-@commands.command(name="use", help="Uses an item.")
+@commands.command(name="use", aliases=["eat", "drink"], help="Uses an item.")
 async def use(ctx, *args):
   await using(ctx, *args)
 

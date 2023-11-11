@@ -52,4 +52,4 @@ async def healing(ctx, bot):
     else:
       return f"**{ctx.author}**, your health is already full."
   else:
-    return "You do not have a profile yet."
+    return "You do not have a profile yet. Is this a bug? Type `::bug <description>` to report it!"

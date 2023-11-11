@@ -29,3 +29,26 @@ classes
 floor 2
 delete messages after a certain amount of time
 maybe
+
+shop only has 3 items that can be brought per "day"
+items that can refresh shop buy amount
+
+equipment with modifiers
+find a way to make it craftable and modular if possible etc
+
+Idle farm or mine or estate or anything else that generates resources and money passively
+like a corporation or something similar
+
+corpo tournaments
+when 2 corporations want to duel all members get a DM to opt in or opt out of it
+when they have a minimum amount of people and the timer elapses each member will duke it out against another member
+they will get a notification on when the duel will take place 
+and they can either fight it out in DMS aka the bot acts as intermediary for both sides
+timeout if the duel partnet does not respond
+
+companion pets
+idle mechanic to hunt for you for as long as there is pet food in your inventory
+each hunt can consume a variable amount of pet food aka 1 pet food could be enough for 3 hunts etc
+when the pet food runs out they would need to buy or make more
+
+pull discord id from patreon directly

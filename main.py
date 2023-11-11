@@ -5,6 +5,8 @@ import json
 import random
 from dotenv import load_dotenv
 import nextcord
+import nextcord
+from typing import List
 from nextcord.ext import commands, tasks
 from nextcord.ext.commands import has_permissions
 from nextcord import SelectOption, message
@@ -44,6 +46,9 @@ from commands.cat import setup as cat_setup
 from commands.use import setup as use_setup
 from commands.hi import setup as hi_setup
 from commands.sell import setup as sell_setup
+from commands.suggest import setup as suggest_setup
+from commands.bug import setup as bug_setup
+from commands.dungeon import setup as dungeon_setup
 
 load_dotenv()
 
@@ -116,6 +121,17 @@ async def on_ready():
   global bot_settings
   global level_progression_data
 
+  try:
+    response = supabase.table('Players').update({
+        'using_command': False
+    }).neq('discord_id', 0).execute()
+    if response:
+      print(f'Failed to reset using_command field: {response}')
+    else:
+      print('All players have been reset and can now use commands.')
+  except Exception as e:
+    print(f'An error occurred while resetting using_command field: {e}')
+
   print(f'Logged in as {bot.user.name}')
   # Loop through all the guilds the bot is a member of
   for guild in bot.guilds:
@@ -136,6 +152,9 @@ async def on_ready():
   print("All guild settings are checked and updated/inserted if necessary.")
 
   print(f'Logged in as {bot.user.name}')
+  # Set the playing status
+  game = nextcord.Game("::hunt | ::help | ::shop")
+  await bot.change_presence(activity=game)
 
 
 @bot.event
@@ -143,6 +162,16 @@ async def on_message(message):
   # Avoid responding to the bot's own messages
   if message.author == bot.user:
     return
+
+  # Get the server settings
+  server_id = message.guild.id if message.guild else None
+  if server_id:
+    settings = await load_settings(server_id)
+    operation_channel_id = settings.get('channel_id')
+
+    # Check if the message is in the designated channel
+    if operation_channel_id and message.channel.id != operation_channel_id:
+      return
 
   # Get user information
   user_id = message.author.id
@@ -229,7 +258,7 @@ class CustomIdModal(nextcord.ui.Modal):
     logging.info("Save settings called.")
 
     await interaction.response.send_message(
-        f"{self.title.split()[-1]} changed to `{new_value}`", ephemeral=True)
+        f"{self.title.split()[-1]} changed to `{new_value}`", ephemeral=False)
 
 
 @bot.command(name="settings",
@@ -238,11 +267,19 @@ class CustomIdModal(nextcord.ui.Modal):
 @has_permissions(administrator=True)
 async def settings_command(ctx):
   bot_settings = await load_settings(ctx.guild.id)
-  embed_color = await get_embed_color(ctx.guild.id
-                                      )  # Use the color from settings
+  embed_color = await get_embed_color(ctx.guild.id)
   embed = nextcord.Embed(title='Bot Settings',
                          description='Configure the bot settings below.',
                          color=embed_color)
+
+  # Display the current operation channel
+  operation_channel_id = bot_settings.get('channel_id')
+  if operation_channel_id:
+    operation_channel = bot.get_channel(operation_channel_id)
+    operation_channel_name = operation_channel.mention if operation_channel else "Invalid Channel"
+  else:
+    operation_channel_name = "Not Set"
+
   embed.add_field(
       name="Embed Color",
       value=
@@ -250,7 +287,12 @@ async def settings_command(ctx):
       inline=True)
   embed.add_field(
       name="Prefix",
-      value=f"Current prefix is `{bot_settings.get('prefix', '!')}`",
+      value=f"Current prefix is `{bot_settings.get('prefix', '::')}`",
+      inline=True)
+  embed.add_field(
+      name="Operation Channel",
+      value=
+      f"Current operation channel is {operation_channel_name}\nUse `{bot_settings.get('prefix', '::')}setchannel <channel>` to change this.",
       inline=True)
   embed.add_field(name="Click the buttons below to change the settings.",
                   value="",
@@ -260,7 +302,8 @@ async def settings_command(ctx):
   async def change_prefix_callback(interaction: nextcord.Interaction):
     if interaction.user != ctx.author:
       await interaction.response.send_message(
-          "You are not authorized to change the settings.", ephemeral=True)
+          "You are not authorized to change the settings. Is this a bug? Type `::bug <description>` to report it!",
+          ephemeral=True)
       return
     modal = CustomIdModal(title="Change Prefix", guild_id=ctx.guild.id)
     await interaction.response.send_modal(modal)
@@ -268,7 +311,8 @@ async def settings_command(ctx):
   async def change_color_callback(interaction: nextcord.Interaction):
     if interaction.user != ctx.author:
       await interaction.response.send_message(
-          "You are not authorized to change the settings.", ephemeral=True)
+          "You are not authorized to change the settings. Is this a bug? Type `::bug <description>` to report it!",
+          ephemeral=True)
       return
     modal = CustomIdModal(title="Change Embed Color", guild_id=ctx.guild.id)
     await interaction.response.send_modal(modal)
@@ -293,6 +337,33 @@ async def settings_command(ctx):
 @settings_command.error
 async def settings_command_error(ctx, error):
   if isinstance(error, commands.MissingPermissions):
+    await ctx.send(
+        "You need administrator permissions to change the settings. Is this a bug? Type `::bug <description>` to report it!"
+    )
+
+
+@bot.command(name="setchannel",
+             help="Sets a specific channel for the bot to operate in.")
+@has_permissions(administrator=True)
+async def setchannel(ctx, channel: nextcord.TextChannel = None):
+  server_id = ctx.guild.id
+
+  if channel is None:
+    # Clear the operation channel setting
+    await save_settings(server_id, {'channel_id': None})
+    await ctx.send(
+        "Bot operation channel has been cleared. The bot will now operate in all channels."
+    )
+  else:
+    # Set the new operation channel
+    await save_settings(server_id, {'channel_id': channel.id})
+    await ctx.send(f"Bot operation channel set to {channel.mention}")
+
+
+# Error handling for the setchannel command
+@setchannel.error
+async def setchannel_error(ctx, error):
+  if isinstance(error, commands.MissingPermissions):
     await ctx.send("You need administrator permissions to change the settings."
                    )
 
@@ -309,11 +380,6 @@ async def profile(ctx, *, user: nextcord.User = None):
   user_id = user.id
   username = user.display_name
   avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
-
-  # Fetch the latest user data from the database
-  response = await bot.loop.run_in_executor(
-      None, lambda: supabase.table('Players').select('*').eq(
-          'discord_id', user_id).execute())
 
   # Fetch the latest user data from the database
   user_data_response = await bot.loop.run_in_executor(
@@ -370,7 +436,9 @@ async def profile(ctx, *, user: nextcord.User = None):
   embed.set_thumbnail(url=avatar_url)
 
   # Set the footer to the bot's name and icon
-  embed.set_footer(text=bot.user.name, icon_url=bot.user.avatar.url)
+  embed.set_footer(
+      text=f"{bot.user.name} - Help us improve! Use ::suggest <suggestion>",
+      icon_url=bot.user.avatar.url)
 
   # Send the embed
   await ctx.send(embed=embed)
@@ -521,6 +589,118 @@ async def heal(ctx):
   await ctx.send(heal_message)
 
 
+@bot.command(name='combat')
+async def combat(ctx):
+  # Simulate combat logic or get stats from your game system
+  # Here, we're just using some made-up static values for demonstration purposes
+  player_stats = {'hp': 47, 'max_hp': 212, 'mp': 60, 'max_mp': 90}
+  enemy_stats = {'hp': 0, 'max_hp': 210, 'mp': 25, 'max_mp': 80}
+  player_damage = 52
+  enemy_damage = 21
+  enemy_name = "Skeleton"
+  threat_level = "Easy"
+  combat_log = [
+      "Skeleton stole 21 HP", "Skeleton has dealt a critical hit! 46 damage",
+      f"{ctx.author.display_name} has dealt {player_damage} magic damage",
+      f"{ctx.author.display_name} won"
+  ]
+
+  # Create the embed
+  embed = nextcord.Embed(
+      title="Dungeon Floor 1",
+      description=
+      f"You encountered a {enemy_name}!\nThreat Level: {threat_level}",
+      color=0x1abc9c)
+  embed.set_thumbnail(url=ctx.author.avatar.url)
+  embed.add_field(
+      name=f"{enemy_name}'s Stats",
+      value=
+      f"{enemy_stats['hp']}/{enemy_stats['max_hp']}❤️, {enemy_stats['mp']}/{enemy_stats['max_mp']}💧",
+      inline=False)
+  embed.add_field(
+      name="Your Stats",
+      value=
+      f"{player_stats['hp']}/{player_stats['max_hp']}❤️, {player_stats['mp']}/{player_stats['max_mp']}💧",
+      inline=False)
+  # Add combat stats (icons can be custom emojis or standard emoji characters)
+  embed.add_field(name="⚔️ 46 | 🛡️ 26 | 🌟 18% | 🎯 112%",
+                  value="Player combat stats here",
+                  inline=False)
+  embed.add_field(name="💫 53 | 🌀 26 | ✨ 11% | 🎲 +18",
+                  value="Additional stats or effects",
+                  inline=False)
+
+  # Add a separator line
+  embed.add_field(name="\u200b",
+                  value="------------------------------------",
+                  inline=False)
+
+  # Add combat log
+  for log in combat_log:
+    embed.add_field(name="\u200b", value=log, inline=False)
+
+  # Send the embed
+  await ctx.send(embed=embed)
+
+
+class DummyCombat(View):
+
+  def __init__(self, ctx, enemy_stats, player_stats):
+    super().__init__(timeout=180)
+    self.ctx = ctx
+    self.enemy_stats = enemy_stats
+    self.player_stats = player_stats
+
+  # When the 'Attack' button is pressed
+  @nextcord.ui.button(label='Attack', style=nextcord.ButtonStyle.red)
+  async def attack(self, button: Button, interaction: nextcord.Interaction):
+    # Simulate attack logic (this is just a placeholder)
+    self.enemy_stats['hp'] -= 15  # Dummy damage value
+    self.player_stats['hp'] -= 5  # Dummy damage taken
+
+    # Update the embed with the new stats
+    embed = nextcord.Embed(title="Dungeon Floor 1",
+                           description="You encountered a Skeleton! ⚔️")
+    embed.add_field(
+        name="Skeleton's Stats",
+        value=f"{self.enemy_stats['hp']}/{self.enemy_stats['max_hp']} HP",
+        inline=True)
+    embed.add_field(
+        name="Your Stats",
+        value=f"{self.player_stats['hp']}/{self.player_stats['max_hp']} HP",
+        inline=True)
+    # Update the message with the new embed
+    await interaction.response.edit_message(embed=embed, view=self)
+
+  # When the 'Flee' button is pressed
+  @nextcord.ui.button(label='Flee', style=nextcord.ButtonStyle.green)
+  async def flee(self, button: Button, interaction: nextcord.Interaction):
+    # End the combat
+    await interaction.response.send_message("You fled from the skeleton!",
+                                            ephemeral=False)
+    self.stop()  # This removes the buttons from the message
+
+
+@bot.command(name='dummycombat')
+async def dummycombat(ctx):
+  enemy_stats = {'hp': 50, 'max_hp': 50}
+  player_stats = {'hp': 100, 'max_hp': 100}
+
+  embed = nextcord.Embed(title="Dungeon Floor 1",
+                         description="You encountered a Skeleton! ⚔️")
+  embed.add_field(name="Skeleton's Stats",
+                  value=f"{enemy_stats['hp']}/{enemy_stats['max_hp']} HP",
+                  inline=True)
+  embed.add_field(name="Your Stats",
+                  value=f"{player_stats['hp']}/{player_stats['max_hp']} HP",
+                  inline=True)
+  embed.set_thumbnail(
+      url="https://i.imgur.com/ZGPxFN2.jpg")  # Example image URL
+
+  view = DummyCombat(ctx, enemy_stats, player_stats)
+  await ctx.send(embed=embed, view=view)
+
+
 # -----------------------------------------------------------------------------
 # No touch beyond this point
 
@@ -546,6 +726,10 @@ try:
   cat_setup(bot)
   use_setup(bot)
   sell_setup(bot)
+  suggest_setup(bot)
+  bug_setup(bot)
+  dungeon_setup(bot)
+
   keep_alive()
 
   bot.run(token)

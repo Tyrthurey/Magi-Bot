@@ -34,8 +34,8 @@ async def hunting(ctx):
 
   # Retrieve the current user data
   user_data_response = await asyncio.get_event_loop().run_in_executor(
-    None, lambda: supabase.table('Players').select('*').eq(
-        'discord_id', user_id).execute())
+      None, lambda: supabase.table('Players').select('*').eq(
+          'discord_id', user_id).execute())
   if not user_data_response.data:
     await ctx.send("You do not have a profile yet.")
     return
@@ -84,7 +84,14 @@ async def hunting(ctx):
   # Scale damage taken based on the ratio between player's stats and mob's stats
   stat_ratio = total_player_stats / total_mob_stats
 
-  if stat_ratio >= 3:
+  revenge_chance = 0
+  revenge = False
+
+  if stat_ratio >= 5:
+    # When player's stats are five times or more than the mob's stats
+    revenge_chance = 0.05  # 0.5% chance for revenge
+    health_loss = 0
+  elif stat_ratio >= 3:
     # Player's stats are triple or more than the mob's stats, so no damage is taken
     health_loss = 0
   elif stat_ratio > 1:
@@ -110,6 +117,13 @@ async def hunting(ctx):
       gold_reward = 0
   else:
     gold_reward = random.randint(10, 40)
+
+  # Check for revenge chance
+  if random.random() < revenge_chance:
+    # If revenge triggers, user dies
+    health_loss = max_health
+    revenge = True
+
   new_health = current_health - health_loss
 
   # Check if the user "dies"
@@ -142,6 +156,10 @@ async def hunting(ctx):
         'max_health': lost_max_health
     }).eq('discord_id', user_id).execute()
 
+    revengemessage1 = (
+        f"**{ctx.author}** DOES UNSPEAKABLE THINGS to the poor {mob_name}-\nWAIT WHAT??? \nTHE {mob_name} SURPRISES **{ctx.author}** and **TAKES REVENGE!!!!!**\n"
+        if revenge else "")
+
     diedmessage1 = (
         f"**{ctx.author.display_name}** WAS ABSOLUTELY DESTROYED by a {mob_name} that had TRIPLE THEIR STATS!!!\n"
         if stat_ratio <= 1 / 3 else "")
@@ -149,19 +167,24 @@ async def hunting(ctx):
     diedmessage2 = (f"**{ctx.author}** couldn\'t handle a {mob_name}. "
                     if stat_ratio > 1 / 3 else "")
 
-    # Inform the user that they "died"
-    await ctx.send(
-        f"**{ctx.author}'s** Total Stats: `{total_player_stats}`\n"
-        f"{mob_name}'s Total Stats: `{total_mob_stats}`\n"
-        f"{diedmessage1}"
-        f"{diedmessage2}"
-        f"They got hit for `{health_loss}` HP and died.\n"
+    lostrewardsmsg = (
         f"**{ctx.author}** lost all rewards, including `{level_change}` level and `{gold_loss}`% of their gold."
+        if level_change > 0 else
+        f"**{ctx.author}** lost all rewards, including their experience towards the next level and `{gold_loss}`% of their gold."
     )
+
+    # Inform the user that they "died"
+    await ctx.send(f"**{ctx.author}'s** Total Stats: `{total_player_stats}`\n"
+                   f"{mob_name}'s Total Stats: `{total_mob_stats}`\n"
+                   f"{revengemessage1}"
+                   f"{diedmessage1}"
+                   f"{diedmessage2}"
+                   f"They got hit for `{health_loss}` HP and died.\n"
+                   f"{lostrewardsmsg}")
     return
   else:
     # Calculate the experience gained
-    additional_exp = random.randint(2, 15)
+    additional_exp = random.randint(10, 30)
     new_exp = current_exp + additional_exp
 
     # Initialize stat increases to 0
@@ -294,7 +317,9 @@ async def hunting_error(ctx, error):
         f"This command is on cooldown. You can use it again in `{error.retry_after:.2f}` seconds."
     )
   else:
-    await ctx.send(f"An error occurred: {error}")
+    await ctx.send(
+        f"An error occurred: {error}\nWas this a mistake? Type `::bug <description>` to report it!"
+    )
 
 
 # Assign the error handler to the command

@@ -5,6 +5,7 @@ import nextcord
 from nextcord.ext import commands
 from supabase import Client, create_client
 from dotenv import load_dotenv
+from functions.load_settings import command_prefix, get_embed_color
 
 logging.basicConfig(level=logging.INFO)
 
@@ -16,6 +17,24 @@ supabase: Client = create_client(url, key)
 
 
 async def shopping(ctx):
+  embed_color = await get_embed_color(ctx.guild.id)
+  user = ctx.author
+
+  user_id = user.id
+  username = user.display_name
+  # avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
+  # Fetch the latest user data from the database
+  user_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Players').select('bal').eq(
+          'discord_id', user_id).execute())
+
+  # Check if the user has a profile
+  if not user_data_response.data:
+    await ctx.send(f"{username} does not have a profile yet.")
+    return
+
+  user_data = user_data_response.data[0]  # User data from the database
+
   # Fetch the shop items from the database
   response = await asyncio.get_event_loop().run_in_executor(
       None, lambda: supabase.table('Items').select(
@@ -32,8 +51,8 @@ async def shopping(ctx):
   embed = nextcord.Embed(
       title="Item Shop",
       description=
-      "Welcome to the shop! Here are the items available for purchase:",
-      color=nextcord.Color.blue())
+      f"Welcome to the shop! You have `{user_data['bal']}` gold!\nHere are the items available for purchase:",
+      color=embed_color)
 
   # Add items to the embed
   for item in items_to_display:
@@ -42,8 +61,9 @@ async def shopping(ctx):
         value=
         f"**Rarity:** {item['rarity']}\n**Description:** {item['description']}\n**Price:** {item['price']} Gold",
         inline=False)
-  embed.set_author(name=ctx.author.display_name,
+  embed.set_author(name=f"{ctx.author.display_name}",
                    icon_url=ctx.author.avatar.url)
+  embed.set_footer(text="Help us improve! Use ::suggest <suggestion>.")
   await ctx.send(embed=embed)
 
 
