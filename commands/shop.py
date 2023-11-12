@@ -22,6 +22,7 @@ async def shopping(ctx):
 
   user_id = user.id
   username = user.display_name
+  avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
   # avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
   # Fetch the latest user data from the database
   user_data_response = await asyncio.get_event_loop().run_in_executor(
@@ -61,8 +62,7 @@ async def shopping(ctx):
         value=
         f"**Rarity:** {item['rarity']}\n**Description:** {item['description']}\n**Price:** {item['price']} Gold",
         inline=False)
-  embed.set_author(name=f"{ctx.author.display_name}",
-                   icon_url=ctx.author.avatar.url)
+  embed.set_author(name=ctx.author.display_name, icon_url=avatar_url)
   embed.set_footer(text="Help us improve! Use ::suggest <suggestion>.")
   await ctx.send(embed=embed)
 

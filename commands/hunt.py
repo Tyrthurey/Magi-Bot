@@ -18,9 +18,22 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
-async def hunting(ctx):
+async def hunting(ctx, action_id):
+
+  command_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Actions').select('*').eq('id', action_id).
+      execute())
+  if not command_data_response.data:
+    await ctx.send("This command does not exist.")
+    return
+
+  command_data = command_data_response.data[0]
+  command_name = command_data['name']
+  command_cd = command_data['normal_cd']
+  # command_patreon_cd = command_data['patreon_cd']
+
   user_id = ctx.author.id
-  command_name = ctx.command.name
+  # command_name = ctx.command.name
   cooldown_remaining = cooldowns.get_cooldown(user_id, command_name)
 
   if cooldown_remaining > 0:
@@ -29,8 +42,10 @@ async def hunting(ctx):
     )
     return
 
+  cooldown = command_cd
+
   # Set the cooldown for the hunt command
-  cooldowns.set_cooldown(user_id, command_name, 60)
+  cooldowns.set_cooldown(user_id, command_name, cooldown)
 
   # Retrieve the current user data
   user_data_response = await asyncio.get_event_loop().run_in_executor(
@@ -72,6 +87,7 @@ async def hunting(ctx):
   mob_def = selected_mob['def']
   mob_magic = selected_mob['magic']
   mob_magic_def = selected_mob['magic_def']
+  revenge = selected_mob['revenge']
   total_mob_stats = mob_atk + mob_def + mob_magic + mob_magic_def
 
   # Retrieve the player stats
@@ -89,7 +105,7 @@ async def hunting(ctx):
 
   if stat_ratio >= 5:
     # When player's stats are five times or more than the mob's stats
-    revenge_chance = 0.05  # 0.5% chance for revenge
+    revenge_chance = 0.05  # 0.05% chance for revenge
     health_loss = 0
   elif stat_ratio >= 3:
     # Player's stats are triple or more than the mob's stats, so no damage is taken
@@ -119,7 +135,7 @@ async def hunting(ctx):
     gold_reward = random.randint(10, 40)
 
   # Check for revenge chance
-  if random.random() < revenge_chance:
+  if random.random() < revenge_chance and revenge:
     # If revenge triggers, user dies
     health_loss = max_health
     revenge = True
@@ -307,7 +323,15 @@ async def hunting(ctx):
                   aliases=["h", "hunting"],
                   help="Go on a hunting adventure and gain experience.")
 async def hunt(ctx):
-  await hunting(ctx)
+  await hunting(ctx, 1)
+
+
+# # Command function
+# @commands.command(name="scout",
+#                   aliases=["s", "scouting"],
+#                   help="Go on a scouting adventure and gain experience.")
+# async def battle(ctx, 3):
+#   await battle(ctx, 3)
 
 
 # Error handler

@@ -52,3 +52,11 @@ each hunt can consume a variable amount of pet food aka 1 pet food could be enou
 when the pet food runs out they would need to buy or make more
 
 pull discord id from patreon directly
+
+PLayers table has a patron_rank
+which references PatreonRanks table in which is the infomation for each pledge tier and the cooldowns and stuff
+aka
+id = 1, name= dungeon_merchant, displayname= Dungeon Merchant, patreon_cd_cooldown_percentage= 30
+
+PETS ARE CARDS AND ARE TRADEABLE AND UPGRADEABLE FROM D RANK to SSS RANK
+

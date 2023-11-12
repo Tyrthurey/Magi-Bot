@@ -5,7 +5,6 @@ import json
 import random
 from dotenv import load_dotenv
 import nextcord
-import nextcord
 from typing import List
 from nextcord.ext import commands, tasks
 from nextcord.ext.commands import has_permissions
@@ -135,6 +134,9 @@ async def on_ready():
   print(f'Logged in as {bot.user.name}')
   # Loop through all the guilds the bot is a member of
   for guild in bot.guilds:
+    server_name = guild.name
+    member_amount = guild.member_count
+    server_id = guild.id
     # Check if there is an entry for the guild in the database
     existing = supabase.table('ServerSettings').select('settings').eq(
         'server_id', guild.id).execute()
@@ -144,10 +146,16 @@ async def on_ready():
       default_settings = {"embed_color": "green", "prefix": "::"}
       supabase.table('ServerSettings').insert({
           'server_id': guild.id,
-          'settings': default_settings
+          'settings': default_settings,
+          'server_name': server_name,
+          'member_amount': member_amount
       }).execute()
       print(f"Inserted default settings for guild ID {guild.id}")
-    server_id = guild.id
+    else:
+      supabase.table('ServerSettings').update({
+          'server_name': server_name,
+          'member_amount': member_amount
+      }).eq('server_id', server_id).execute()
     bot_settings[server_id] = await load_settings(server_id)
   print("All guild settings are checked and updated/inserted if necessary.")
 
@@ -451,19 +459,22 @@ async def profile_error(ctx, error):
     await ctx.send("Couldn't find that user.")
 
 
-@bot.command(name="leaderboard", help="Displays the top players by level.")
+@bot.command(name="leaderboard",
+             aliases=["lb"],
+             help="Displays the top players by level.")
 async def leaderboard(ctx):
   # Fetch top 10 users by level
   results = supabase.table('Players').select('*').eq('is_bot', False).order(
-      'level', desc=True).limit(10).execute()
+      'level', desc=True).order('adventure_exp',
+                                desc=True).limit(10).execute()
 
   # Check if the request was successful
   if results.data:
     leaderboard = "\n".join([
-        f"{idx + 1}. {user['username']} - Level {user['level']}"
+        f"{idx + 1}. {user['username']} - Level {user['level']} (EXP: {user['adventure_exp']})"
         for idx, user in enumerate(results.data)
     ])
-    await ctx.send(f"Top Players by Level:\n{leaderboard}")
+    await ctx.send(f"Top Players by Level and Experience:\n{leaderboard}")
   else:
     await ctx.send("Could not retrieve the leaderboard at this time.")
 
@@ -584,12 +595,24 @@ async def inventory(ctx, *, user: nextcord.User = None):
 
 @bot.command(name="heal", help="Heals you using a Healing Potion.")
 async def heal(ctx):
+  user_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Players').select('*').eq(
+          'discord_id', ctx.author.id).execute())
+  if not user_data_response.data:
+    await ctx.send("You do not have a profile yet.")
+    return
+  user_data = user_data_response.data[0]
+  using_command = user_data['using_command']
+  if using_command:
+    await ctx.send(
+        "You're already in a command. Finish it before starting another.")
+    return
   # Call the imported `healing` function
   heal_message = await healing(ctx, bot)
   await ctx.send(heal_message)
 
 
-@bot.command(name='combat')
+@bot.command(name='alsodummycombat')
 async def combat(ctx):
   # Simulate combat logic or get stats from your game system
   # Here, we're just using some made-up static values for demonstration purposes

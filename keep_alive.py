@@ -141,22 +141,29 @@ def homepage():
   return render_template_string(HTML_TEMPLATE)
 
 
-@app.route('/leaderboard')
-def leaderboard():
-  leaderboard_data = fetch_leaderboard()
-  return jsonify(leaderboard_data)
-
-
 def fetch_leaderboard():
-  # Query the database, filtering out bots and limiting to top 10 human players
-  results = supabase.table('Players').select('*').eq('is_bot', False).order(
-      'level', desc=True).limit(10).execute()
+  # Query the database, filtering out bots and getting the top players
+  results = supabase.table('Players').select('*').eq('is_bot', False).execute()
 
   if results.data:
-    return results.data  # Already limited to top 10 and ordered by level
+    # Sort the players first by level in descending order, then by adventure_exp in descending order
+    sorted_data = sorted(results.data,
+                         key=lambda x: (-x['level'], -x['adventure_exp']))
+    return sorted_data[:10]  # Return only the top 10 players
   else:
     return []
 
+
+@app.route('/leaderboard')
+def leaderboard_route():
+  leaderboard_data = fetch_leaderboard()
+  # Convert the data to the format expected by the frontend
+  formatted_data = [{
+      "username": player.get('username'),
+      "level": player.get('level'),
+      "adventure_exp": player.get('adventure_exp')
+  } for player in leaderboard_data]
+  return jsonify(formatted_data)
 
 
 def run():
@@ -166,3 +173,8 @@ def run():
 def keep_alive():
   t = threading.Thread(target=run)
   t.start()
+
+
+# Run the server if this file is executed directly
+if __name__ == '__main__':
+  keep_alive()

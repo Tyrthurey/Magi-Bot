@@ -1,5 +1,5 @@
 """This file should hold all of the internal combat functions
-that are used within alll combat commands (Hunt, Adv, Dungeon, etc.)"""
+that are used within all combat commands (Hunt, Adv, Dungeon, etc.)"""
 """===============================
 Has not been integrated into main.py or the rest of the bot
 ==============================="""
@@ -8,11 +8,11 @@ import asyncio
 import logging
 import nextcord
 import os
+import random
 from dotenv import load_dotenv
 from supabase import Client, create_client
-import nextcord
 from nextcord.ext import commands
-import random
+
 
 logging.basicConfig(level=logging.INFO)
 
