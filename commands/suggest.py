@@ -78,6 +78,20 @@ async def confirm_suggestion(ctx, suggestion):
 @commands.command(name="suggest",
                   help="Submit a suggestion.\n\nUsage: `suggest <suggestion>`")
 async def suggest_command(ctx, *, suggestion):
+  user_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Players').select('using_command').eq(
+          'discord_id', ctx.author.id).execute())
+  if not user_data_response.data:
+    await ctx.send("You do not have a profile yet.")
+    return
+
+  user_data = user_data_response.data[0]
+  using_command = user_data['using_command']
+  # Check if the player is already in a command
+  if using_command:
+    await ctx.send(
+        "You're already in a command. Finish it before starting another.")
+    return
   await confirm_suggestion(ctx, suggestion)
 
 

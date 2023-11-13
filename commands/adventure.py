@@ -14,10 +14,10 @@ import asyncio
 import time
 import math
 
-from classes.Player import Player
-from classes.Enemy import Enemy
-from classes.DungeonCombatView import DungeonCombatView
+from classes.AdvCombatView import AdvCombatView
 from classes.TutorialView import TutorialView
+from classes.Enemy import Enemy
+from classes.Player import Player
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,15 +28,10 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
-# In the dungeon command...
-@commands.command(name="dungeon")
+# Adventure command...
+@commands.command(name="adventure")
 @has_permissions(administrator=True)
-async def dungeon(ctx, *mentions: nextcord.Member):
-  if len(mentions) != 2:
-    await ctx.send("You need three total people to complete this dungeon!")
-    return
-
-  # players = [Player(ctx.author)] + [Player(mention) for mention in mentions]
+async def adventure(ctx):
 
   player = Player(ctx.author)
   # Check if the player is already in a command
@@ -48,9 +43,9 @@ async def dungeon(ctx, *mentions: nextcord.Member):
 
   # Define your tutorial messages here
   tutorial_messages = [
-      "Welcome to the dungeon! ...",  # Tutorial part 1
-      "Dungeon Monsters ...",  # Tutorial part 2
-      "Stats ...",  # Tutorial part 3
+      "Welcome to adventurin!",  # Tutorial part 1
+      "Monsters are random",  # Tutorial part 2
+      "Stats affect you!",  # Tutorial part 3
       # Add all the tutorial parts here...
   ]
 
@@ -84,12 +79,12 @@ async def dungeon(ctx, *mentions: nextcord.Member):
   threat_level = enemy.determine_threat_level(player_stats_total)
 
   # Create the initial embed with player and enemy information
-  embed = nextcord.Embed(title=f"Dungeon Floor {player.floor}")
+  embed = nextcord.Embed(title=f"{player.name}'s adventure")
   embed.set_thumbnail(
       url=
       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Crossed_swords.svg/240px-Crossed_swords.svg.png'
   )
-  embed.add_field(name=f"A wild **BOSS** {enemy.name} appears!",
+  embed.add_field(name=f"A wild {enemy.name} appears!",
                   value=f"**Threat Level:** {threat_level}\n{str(enemy)}",
                   inline=False)
 
@@ -103,15 +98,14 @@ async def dungeon(ctx, *mentions: nextcord.Member):
                   value="",
                   inline=False)
 
-  embed.add_field(
-      name="",
-      value="⚔️ --> Melee Attack \n🛡️ --> Defend \n✨ --> Cast Spell",
-      inline=True)
+  embed.add_field(name="",
+                  value="⚔️ --> Melee Attack \n🛡️ --> Defend",
+                  inline=True)
 
   embed.add_field(name="", value="🔨 --> Use Item \n💨 --> Flee", inline=True)
 
   # Start combat with the initial embed
-  view = DungeonCombatView(ctx, player, enemy)
+  view = AdvCombatView(ctx, player, enemy)
   await ctx.send(embed=embed, view=view)
 
 
@@ -120,4 +114,4 @@ async def dungeon(ctx, *mentions: nextcord.Member):
 
 # Export the command function to be imported in main.py
 def setup(bot):
-  bot.add_command(dungeon)
+  bot.add_command(adventure)

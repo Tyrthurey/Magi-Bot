@@ -90,6 +90,20 @@ async def buying(ctx, *args):
 @commands.cooldown(1, 5, commands.BucketType.user
                    )  # Cooldown: 1 time per 5 seconds per user
 async def buy(ctx, *args):
+  user_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Players').select('using_command').eq(
+          'discord_id', ctx.author.id).execute())
+  if not user_data_response.data:
+    await ctx.send("You do not have a profile yet.")
+    return
+
+  user_data = user_data_response.data[0]
+  using_command = user_data['using_command']
+  # Check if the player is already in a command
+  if using_command:
+    await ctx.send(
+        "You're already in a command. Finish it before starting another.")
+    return
   await buying(ctx, *args)
 
 

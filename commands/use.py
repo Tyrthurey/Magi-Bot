@@ -78,12 +78,37 @@ async def using(ctx, *args):
       )
     else:
       await ctx.send("You don't have any coffee left. Sadge.")
+
+  elif ITEM_ID == 1:
+    if inventory_response > 0:
+      # Decrease the pill count by one
+      await item_write(user_id, ITEM_ID, -1)
+
+      await ctx.send(f"**{ctx.author}** has healed to full HP!")
+    else:
+      await ctx.send(
+          "You don't have any heal potions. Sadge.\nUse `::buy health potion` to buy some!"
+      )
   else:
     await ctx.send("This item cannot be used. Duh.\nCheck your spelling.")
 
 
 @commands.command(name="use", aliases=["eat", "drink"], help="Uses an item.")
 async def use(ctx, *args):
+  user_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Players').select('using_command').eq(
+          'discord_id', ctx.author.id).execute())
+  if not user_data_response.data:
+    await ctx.send("You do not have a profile yet.")
+    return
+
+  user_data = user_data_response.data[0]
+  using_command = user_data['using_command']
+  # Check if the player is already in a command
+  if using_command:
+    await ctx.send(
+        "You're already in a command. Finish it before starting another.")
+    return
   await using(ctx, *args)
 
 
