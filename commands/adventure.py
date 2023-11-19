@@ -109,9 +109,6 @@ async def adventure(ctx):
   await ctx.send(embed=embed, view=view)
 
 
-# The embed is initially created within the CombatView constructor
-
-
 # Export the command function to be imported in main.py
 def setup(bot):
   bot.add_command(adventure)

@@ -105,22 +105,27 @@ async def hunting(ctx, action_id):
 
   if stat_ratio >= 5:
     # When player's stats are five times or more than the mob's stats
-    revenge_chance = 0.05  # 0.05% chance for revenge
+    revenge_chance = 0  # 0.05% chance for revenge
     health_loss = 0
+
   elif stat_ratio >= 3:
     # Player's stats are triple or more than the mob's stats, so no damage is taken
     health_loss = 0
+
   elif stat_ratio > 1:
     # If player's stats are greater than the mob's but less than triple
     # Scale damage from 0% at triple player's stats to 50% at equal stats
     health_loss = math.floor((2 - (stat_ratio / 3)) * 0.5 * max_health)
+
   elif stat_ratio == 1:
     # If player's stats are equal to the mob's stats
     health_loss = math.floor(0.5 * max_health)
+
   elif stat_ratio > 1 / 3:
     # If mob's stats are greater than the player's but less than triple
     # Scale damage from 50% at equal stats to 100% at triple mob's stats
     health_loss = math.floor((1 + (1 - (stat_ratio * 3)) * 0.5) * max_health)
+
   else:
     # Mob's stats are triple or more than the player's stats, player takes full health as damage
     health_loss = max_health
@@ -277,20 +282,73 @@ async def hunting(ctx, action_id):
       if item_response.data:
         item_name = item_response.data[0]['item_displayname'].lower()
 
+    # Message templates
+    message2_templates = [
+        f"The {mob_name} never stood a chance against **{ctx.author}**'s DOUBLE TROUBLE ATTACK!!!",
+        f"With TWICE the power, **{ctx.author}** sends the {mob_name} flying into next week!!",
+        f"**{ctx.author}**'s power level is OVER 9000, annihilating the {mob_name} with DOUBLE FORCE!!!",
+        f"The earth quakes as **{ctx.author}** unleashes a DUAL-WIELD SMASH on the {mob_name}!!!",
+        f"Watch out! **{ctx.author}**'s DOUBLE DRAGON STRIKE turns the {mob_name} into stardust!!",
+        f"It's a one-hit K.O.! **{ctx.author}**'s TWIN FIST FURY decimates the {mob_name}!!",
+        f"**{ctx.author}** channels DOUBLE SPIRIT ENERGY and obliterates the {mob_name}!!!",
+        f"With a TWOFOLD SLASH, **{ctx.author}** cuts the {mob_name} down to size!!",
+        f"**{ctx.author}**'s DOUBLE DASH DANCE leaves the {mob_name} in a dizzy daze!!!",
+        f"In a flash, **{ctx.author}**'s TWIN TORNADO TECHNIQUE whirls the {mob_name} away!!!"
+    ]
+
+    message3_templates = [
+        f"**{ctx.author}** ABSOLUTELY DECIMATED a {mob_name} by having TRIPLE stats!?! \n",
+        f"**{ctx.author}** triples the terror with a TRI-FORCE TAKEDOWN on the {mob_name}!!!\n",
+        f"THREE TIMES THE MIGHT! **{ctx.author}** launches a TRIPLE THUNDER STRIKE on the {mob_name}!!\n",
+        f"**{ctx.author}** summons THREE DRAGONS OF DOOM to devour the {mob_name}!!\n",
+        f"It's a TRIPLE TROUBLE TRAMPLE! **{ctx.author}** stomps the {mob_name} into oblivion!!!\n",
+        f"With TRIPLE SWORD SYMPHONY, **{ctx.author}** slices the {mob_name} into cosmic confetti!!\n",
+        f"**{ctx.author}**'s TRIPLE ENERGY ECLIPSE blasts the {mob_name} into another dimension!!\n",
+        f"In an epic showdown, **{ctx.author}**'s TRI-BEAM BLAST vaporizes the {mob_name}!!!\n",
+        f"**{ctx.author}** performs a TRIPLE SPIRIT SHOT, sending the {mob_name} to the shadow realm!!\n",
+        f"THREE-HEADED HYDRA HAVOC! **{ctx.author}**'s attack leaves the {mob_name} in ruins!!\n",
+        f"**{ctx.author}** unleashes a TRIPLE WIND WHIRLWIND, sweeping the {mob_name} off their feet!!\n"
+    ]
+
+    message4_templates = [
+        f"QUAD DAMAGE! **{ctx.author}**'s FOUR-FOLD FURY flattens the {mob_name}!!!\n",
+        f"In a blaze of glory, **{ctx.author}**'s QUADRUPLE QUASAR QUEST incinerates the {mob_name}!!!\n",
+        f"**{ctx.author}**'s FOUR HORSEMEN CHARGE tramples the {mob_name} into dust!!!\n",
+        f"With a QUADRUPLE KAMEHAMEHA, **{ctx.author}** blasts the {mob_name} to the next galaxy!!\n",
+        f"QUAD-LOCKED! **{ctx.author}** locks the {mob_name} in a four-dimensional prison!!!\n",
+        f"FOUR-FISTED FRENZY! **{ctx.author}** pummels the {mob_name} with unstoppable force!!\n",
+        f"The {mob_name} is caught in **{ctx.author}**'s QUADRUPLE SPIRAL SLASH vortex!!!\n",
+        f"**{ctx.author}** executes a PERFECT QUADRUPLE COMBO, sending the {mob_name} to oblivion!!\n",
+        f"QUADRUPLE CLONE CATASTROPHE! **{ctx.author}**'s clones overwhelm the {mob_name}!!\n",
+        f"In a flash of light, **{ctx.author}**'s QUADRA DRAGON DANCE devours the {mob_name}!!\n",
+    ]
+
+    message2_template = random.choice(message2_templates)
+    message3_template = random.choice(message3_templates)
+    message4_template = random.choice(message4_templates)
+
     message1 = (
+        f"**{ctx.author}** BULLIED THE :broken_heart: HEARTBROKEN {mob_name} SO HARD THEIR HEART STOPPED DUE TO THEIR ***OCTUPLE STATS***!!!!?!?!?!?!?! \n"
+        if stat_ratio >= 8 else
+        f"**{ctx.author}** made {mob_name} happy ONLY TO DESTROY THEIR WHOLE LIFE AND MARRIAGE :broken_heart: due to having ***SEPTUPLE*** the stats!!!!????????? \n"
+        if stat_ratio >= 7 else
+        f"**{ctx.author}** **DESTROYS EVERYTHING** THE {mob_name} LOVES by having ***SEXTUPLE*** their stats!!!!???? \n"
+        if stat_ratio >= 6 else
         f"**{ctx.author}** DOES UNSPEAKABLE THINGS to the poor {mob_name} simply by having ***PENTUPLE*** the stats!!!! \n"
         if stat_ratio >= 5 else
-        f"**{ctx.author}** RAGE STOMPED a {mob_name} INTO THE GROUND having QUADRUPLE the stats!?! \n"
-        if stat_ratio >= 4 else
-        f"**{ctx.author}** ABSOLUTELY DECIMATED a {mob_name} by having TRIPLE stats!?! \n"
+        message4_template if stat_ratio >= 4 else message3_template
         if stat_ratio >= 3 else f"**{ctx.author}** killed a {mob_name}! \n")
 
     message2 = (
+        f"**{ctx.author}** BULLIED THE :broken_heart: HEARTBROKEN {mob_name} SO HARD THEIR HEART STOPPED DUE TO THEIR ***OCTAPLE STATS***!!!!?!?!?!?!?! \n"
+        if stat_ratio >= 8 else
+        f"**{ctx.author}** made {mob_name} happy ONLY TO DESTROY THEIR WHOLE LIFE AND :broken_heart: MARRIAGE due to having ***SEPTUPLE*** the stats!!!!????????? \n"
+        if stat_ratio >= 7 else
+        f"**{ctx.author}** **DESTROYS EVERYTHING** THE {mob_name} LOVES by having ***SEXTUPLE*** their stats!!!!???? \n"
+        if stat_ratio >= 6 else
         f"**{ctx.author}** DOES UNSPEAKABLE THINGS to the poor {mob_name} simply by having ***PENTUPLE*** the stats!!!! \n"
         if stat_ratio >= 5 else
-        f"**{ctx.author}** RAGE STOMPED a {mob_name} INTO THE GROUND having **QUADRUPLE** the stats!?! \n"
-        if stat_ratio >= 4 else
-        f"**{ctx.author}** ABSOLUTELY DECIMATED a {mob_name} by having *TRIPLE* stats!?! \n"
+        message4_template if stat_ratio >= 4 else message3_template
         if stat_ratio >= 3 else f"**{ctx.author}** killed a {mob_name}! \n")
 
     # Inform the user of the outcome of the hunt
@@ -306,6 +364,7 @@ async def hunting(ctx, action_id):
           f"MAGIC DEF: `{user_data['magic_def'] + additional_magic_def}`, "
           f"Health: `{new_max_health}`HP!\n"
           f"{f'**{ctx.author}** got `1` {item_name}' if item_name!='nothing' else ''}"
+          f"```HUNT STILL WORKS BUT PROFILE IS NEW DATA, you can still farm exp tho just use ::lb\nAlso do ::get_title for a sweet title :P```"
       )
     else:
       await ctx.send(
@@ -315,6 +374,7 @@ async def hunting(ctx, action_id):
           f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
           f"Lost `{health_loss}`HP. Current Health: `{max(1, new_health)}/{max_health}`HP.\n"
           f"{f'**{ctx.author}** got `1` {item_name}' if item_name!='nothing' else ''}"
+          f"```HUNT STILL WORKS BUT PROFILE IS NEW DATA, you can still farm exp tho just use ::lb```"
       )
 
 

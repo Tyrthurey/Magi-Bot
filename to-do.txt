@@ -1,11 +1,27 @@
 This is just a to-do list of possible projects and areas to work on.
 
+
   Rebuild combat to incorporate discrete values instead of percentages.
  
   Adjust profiles to balance stats with new combat system.
  
   Account for and track how to prevent one function that calls another function
   from overwriteing the changes any nested function(s) make.
+
+PLAYER LEVEL UP LOGIC
+---
+Player class has an addExp() function
+  Takes int and adds to self.adventure_exp
+  checks self.adventure_exp > {global LevelProgression dictionary['self.level']}
+  if true, calls self.levelUp()
+
+Player class has an AddExp() function
+  Contains embeds to allow player to choose level up choices via DM
+  Posts generic Level Up message to channel level up event is in.
+  DMs:
+    Chose class, Choose point spend, 
+
+
 
 
 DUNGEON COMBAT
@@ -63,4 +79,63 @@ aka
 id = 1, name= dungeon_merchant, displayname= Dungeon Merchant, patreon_cd_cooldown_percentage= 30
 
 PETS ARE CARDS AND ARE TRADEABLE AND UPGRADEABLE FROM D RANK to SSS RANK
+
+
+Stats - Everyone(players) and everything(mob/monster/boss) should have the same basic stats
+        and those stats should behave similarly. The eception could be a simpler stat block
+        for non-sapient creatures vs a more complex stat block for sapient creatures, both
+        player and monster.
+---
+Strength
+Endurance
+Agility
+Intelligence
+Perception
+
+Luck
+
+def custom_value(n):
+    if n < 10:
+        return 0.15 + n*0.05 + (0.05 if n > 3 else 0) + (0.1 if n > 7 else 0)
+    else:
+        return int((n-10)/10) + 1 + max(0, (n-10) % 10 * 0.05)
+
+def main():
+    try:
+        number = float(input("Enter a number: "))
+        result = number * custom_value(number)
+        print(f"Result: {result}")
+    except ValueError:
+        print("Please enter a valid number.")
+
+if __name__ == "__main__":
+    main()
+
+
+
+
+how does Agility,  Intelligence, Endurance, Strength, Perception and Luck affect the way the player's character does combat and how they interact with each other. Aka high strength but low agility could mean that the player's hits pack a lot of power, but he has a longer cooldown on them. High agility and low perception means that they are fast, but have a higher chance to trip or be unable to dodge. If their intelligence is low but their perception is high, then they would see the hidden enemy, but would be too dumb to realize they are a threat. If endurance is low, but strength is high, then they would be only able to make a limited amount of attacks before they get tired. If Strength and Endurance are high, but Agility, Perception and Intelligence are low, then they can hit hard and keep hitting, but they are slow, would often not see the target and thus miss, and would be too dumb to differentiate between allies and enemies. And so on.
+
+Materials per floors
+---
+1 - Mud
+2 - Wood
+3 - Stone
+4 - Iron
+5 - Marble
+6 - Cotton
+7 - Paper
+
+
+Mobs per floor
+---
+1 - Skeleton
+2 - Ent
+3 - Rock Golem
+4 - Kobold
+5 - Goblin
+6 - Evil Silkworm / Spider
+7 - Something that will try to drown you in paperwork
+
+
 

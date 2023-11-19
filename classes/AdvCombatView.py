@@ -29,12 +29,9 @@ class AdvCombatView(CombatView):
   async def update_embed(self, interaction):
     avatar_url = self.ctx.author.avatar.url if self.ctx.author.avatar else self.ctx.author.default_avatar.url
     embed = nextcord.Embed(title=f"{self.player.name}'s adventure")
-    embed.set_thumbnail(
-        url=
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Crossed_swords.svg/240px-Crossed_swords.svg.png'
-    )
+    embed.set_thumbnail(url='')
     embed.add_field(
-        name=f"**BOSS** {self.enemy.name}'s Stats",
+        name=f"{self.enemy.name}'s Stats",
         value=f"**Threat Level:** {self.threat_level}\n{str(self.enemy)}",
         inline=False)
     embed.add_field(name="__Your Stats__",
@@ -82,66 +79,3 @@ class AdvCombatView(CombatView):
   @nextcord.ui.button(label="💨", style=nextcord.ButtonStyle.red)
   async def flee(self, button: Button, interaction: nextcord.Interaction):
     await self.handle_combat_turn(interaction, "flee")
-
-  async def handle_combat_turn(self, interaction: nextcord.Interaction,
-                               action: str):
-    player_damage = 0
-    enemy_damage = 0
-
-    if action == "spell":
-      player_damage = self.player.cast_spell(self.enemy)
-
-      # Update combat log
-      self.combat_log.append(
-          f"**{self.player.name}** casts [spell] for `{player_damage}` damage!")
-
-    elif action == "melee":
-      player_damage = self.player.melee_attack(self.enemy)
-
-      # Update combat log
-      self.combat_log.append(
-          f"**{self.player.name}** attacks for `{player_damage}` damage!")
-
-    elif action == "defend":
-      self.player.defend()  #??
-      enemy_damage = math.floor(enemy_damage * 0.5)
-
-      # Update combat log
-      self.combat_log.append(f"**{self.player.name}** defends!")
-
-    elif action == "item":
-      # Implement item usage logic here
-      pass
-
-    elif action == "flee":
-      fled_success = self.player.flee()
-      if fled_success:
-        await self.handle_flee(interaction)
-        return
-      else:
-        self.combat_log.append(f"**{self.player.name}** failed to flee!")
-
-    # Update the embed to show the player's action
-    await self.update_embed(interaction)
-
-    # Add a delay before showing the mob's action
-    await asyncio.sleep(0.5)
-
-    # If the enemy is dead, end combat
-    if self.enemy.health <= 0:
-      await self.handle_enemy_defeat(interaction)
-
-    # Show the mob's action
-    enemy_damage = self.enemy.attack(self.player)
-
-    self.combat_log.append(
-        f"{self.enemy.name} attacks for {enemy_damage} damage!")
-
-    # Update the embed to show the player's action
-    await self.update_embed(interaction)
-
-    # Check for end of combat
-    if self.player.health <= 0:
-      await self.handle_death(interaction)
-    else:
-      await self.update_embed(interaction)

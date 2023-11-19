@@ -36,15 +36,22 @@ async def selling(ctx, *args):
     await ctx.send("Usage: ::sell [item name]")
     return
 
-  # Check if the last argument is an integer (the amount), and if not, default the amount to 1
-  try:
-    amount = int(args[-1])
-    if amount <= 0:
-      raise ValueError
+  # Check if the last argument is "all" (to sell all items), or an integer (the amount),
+  # and if neither, default the amount to 1
+  if args[-1].lower() == 'all':
     item_display_name = " ".join(args[:-1]).lower()
-  except ValueError:  # Last argument is not an integer, so we assume it's part of the item name
-    amount = 1
-    item_display_name = " ".join(args).lower()
+    all_items = True
+    amount = 1  # Assign a default value to amount
+  else:
+    all_items = False
+    try:
+      amount = int(args[-1])
+      if amount <= 0:
+        raise ValueError
+      item_display_name = " ".join(args[:-1]).lower()
+    except ValueError:  # Last argument is not an integer, so we assume it's part of the item name
+      amount = 1
+      item_display_name = " ".join(args).lower()
 
   # Lookup item ID, price, and other necessary details from the Items table
   item_response = await asyncio.get_event_loop().run_in_executor(
@@ -65,7 +72,8 @@ async def selling(ctx, *args):
   inventory_response = await check_inventory(user_id, ITEM_ID, 'item')
 
   if sell_price > 0:
-    if inventory_response > 0 and inventory_response >= amount:
+    if inventory_response > 0 and (inventory_response >= amount or all_items):
+      amount = inventory_response if all_items else amount  # Sell all items if "all" was specified
       balance_response = await asyncio.get_event_loop().run_in_executor(
           None, lambda: supabase.table('Players').select('bal').eq(
               'discord_id', user_id).execute())

@@ -8,7 +8,7 @@ import nextcord
 from typing import List
 from nextcord.ext import commands, tasks
 from nextcord.ext.commands import has_permissions
-from nextcord import SelectOption, message
+from nextcord import SelectOption, message, Embed
 from nextcord.ui import Select, Button, View
 from nextcord import Interaction
 from nextcord import ActionRow
@@ -48,6 +48,8 @@ from commands.sell import setup as sell_setup
 from commands.suggest import setup as suggest_setup
 from commands.bug import setup as bug_setup
 from commands.dungeon import setup as dungeon_setup
+from commands.adventure import setup as adv_setup
+from commands.floor import setup as floor_setup
 
 load_dotenv()
 
@@ -121,13 +123,9 @@ async def on_ready():
   global level_progression_data
 
   try:
-    response = supabase.table('Players').update({
+    supabase.table('Players').update({
         'using_command': False
     }).neq('discord_id', 0).execute()
-    if response:
-      print(f'Failed to reset using_command field: {response}')
-    else:
-      print('All players have been reset and can now use commands.')
   except Exception as e:
     print(f'An error occurred while resetting using_command field: {e}')
 
@@ -234,14 +232,99 @@ async def on_message(message):
   await bot.process_commands(message)
 
 
-# Bot command to send a random gif
+@bot.command(
+    name="start",
+    help="Starts the game and creates a profile for you if it doesn't exist.")
+async def start(ctx):
+  # Get user information
+  user_id = ctx.author.id
+  username = str(ctx.author)
+
+  # Check if the user is already in the database
+  def check_user():
+    return supabase.table('Users').select('discord_id').eq(
+        'discord_id', user_id).execute()
+
+  def insert_new_user():
+    # Set the initial values for the new user
+    initial_data = {
+        'discord_id': user_id,
+        'username': username,
+        'location': 'Tutorial',
+        'adventure_exp': 0,
+        'level': 1,
+        'free_points': 5,
+        'health': 25,
+        'max_health': 25,
+        'energy': 13,
+        'max_energy': 13,
+        'strength': 5,
+        'dexterity': 5,
+        'vitality': 5,
+        'cunning': 5,
+        'magic': 5,
+        'luck': 5,
+        'recovery_speed': 5,
+        'damage': 12,
+        'defence': 12,
+        'bal': 100,
+        'floor': 1,
+        'max_floor': 1,
+        'level_ignore': 0,
+        'crit_chance': 4,
+        'dodge_chance': 10,
+        'escape_chance': 50,
+        'accuracy': 50,
+        'deaths': 0,
+        'server_exp': 0,
+        'server_level': 0
+    }
+    return supabase.table('Users').insert(initial_data).execute()
+
+  response = await bot.loop.run_in_executor(None, check_user)
+
+  if response.data:
+    # The user exists, send a message
+    await ctx.send("You have already started the game and your profile exists."
+                   )
+  else:
+    # The user doesn't exist, so add them to the database with initial values
+    await bot.loop.run_in_executor(None, insert_new_user)
+    # Send a message with the tutorial
+    await ctx.send("Welcome to the game! Here is a small tutorial...\n"
+                   "(*Add your game tutorial here*)")
+
+
+## Bot command to send a random gif
+# @bot.command(name="gif",
+#             aliases=["feed", "play", "sleep"],
+#             help="Sends a random dog gif.")
+# async def gif(ctx):
+#  with open("gifs.json") as f:
+#    links = json.load(f)
+#  await ctx.send(random.choice(links[ctx.invoked_with]))
+
+
 @bot.command(name="gif",
              aliases=["feed", "play", "sleep"],
              help="Sends a random dog gif.")
 async def gif(ctx):
-  with open("gifs.json") as f:
-    links = json.load(f)
-  await ctx.send(random.choice(links[ctx.invoked_with]))
+  # Check if the user is in the database
+  def check_user():
+    user_id = ctx.author.id
+    return supabase.table('Users').select('discord_id').eq(
+        'discord_id', user_id).execute()
+
+  response = await bot.loop.run_in_executor(None, check_user)
+
+  if response.data:
+    # The user exists, proceed with the command
+    with open("gifs.json") as f:
+      links = json.load(f)
+    await ctx.send(random.choice(links[ctx.invoked_with]))
+  else:
+    # The user doesn't exist, send a message to run /start
+    await ctx.send("Profile Not Found, Please run /start")
 
 
 class CustomIdModal(nextcord.ui.Modal):
@@ -391,12 +474,13 @@ async def profile(ctx, *, user: nextcord.User = None):
 
   # Fetch the latest user data from the database
   user_data_response = await bot.loop.run_in_executor(
-      None, lambda: supabase.table('Players').select('*').eq(
+      None, lambda: supabase.table('Users').select('*').eq(
           'discord_id', user_id).execute())
 
   # Check if the user has a profile
   if not user_data_response.data:
-    await ctx.send(f"{username} does not have a profile yet.")
+    await ctx.send(
+        f"{username} does not have a profile yet.\nPlease type `::start`.")
     return
 
   user_data = user_data_response.data[0]  # User data from the database
@@ -412,30 +496,59 @@ async def profile(ctx, *, user: nextcord.User = None):
   else:
     needed_adv_level_exp = "N/A"
 
+  # Fetch the user's inventory data from the database
+  inventory_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Inventory').select('titles').eq(
+          'discord_id', user_id).execute())
+
+  # Check if the user has any titles
+  user_title = "Rookie Adventurer"  # default title
+  if inventory_response.data:
+    inventory_data = inventory_response.data[0]
+    titles = inventory_data.get('titles', [])
+
+    # Check if the user has an equipped title
+    equipped_title = next(
+        (title for title in titles if title["equipped"] is True), None)
+    if equipped_title:
+      # Fetch the title name from the Titles table
+      title_response = await bot.loop.run_in_executor(
+          None, lambda: supabase.table('Titles').select('title_name').eq(
+              'id', equipped_title['title_id']).execute()
+      )  # Replace 'id' with your actual column name
+
+      if title_response.data:
+        user_title = title_response.data[0]['title_name']
+      else:
+        user_title = "Rookie Adventurer"
+
   # Create the embed with the updated user data
-  embed = nextcord.Embed(title="Rookie Adventurer", color=embed_color)
+  embed = nextcord.Embed(title=user_title, color=embed_color)
   embed.set_author(name=f"{username}'s Profile", icon_url=avatar_url)
 
-  total_stats = user_data['atk'] + user_data['def'] + user_data[
-      'magic'] + user_data['magic_def']
+  total_stats = user_data['strength'] + user_data['dexterity'] + user_data[
+      'vitality'] + user_data['cunning'] + user_data['magic'] + user_data[
+          'luck']
 
   embed.add_field(
       name="__Status:__",
       value=f"**Level:** {user_data['level']}\n"
       f"**EXP:** {user_data['adventure_exp']}/{needed_adv_level_exp}\n"
       f"**Gold:** {user_data['bal']}\n"
-      f"**Floor:** {user_data['floor']}\n"
-      f"**HP:** {user_data['health']}/{user_data['max_health']}\n"
-      f"**MP:** 0/0",
+      f"**Location:** {user_data['location']}\n"
+      f"**Health:** {user_data['health']}/{user_data['max_health']}\n"
+      f"**Energy:** {user_data['energy']}/{user_data['max_energy']}",
       inline=True)
 
   embed.add_field(name="__Stats:__",
-                  value=f"**ATK:** {user_data['atk']}\n"
-                  f"**DEF:** {user_data['def']}\n"
-                  f"**MAGIC:** {user_data['magic']}\n"
-                  f"**MAGIC DEF:** {user_data['magic_def']}\n"
-                  f"**STAT SCORE:** {total_stats}\n"
-                  f"**FREE POINTS:** (In-Dev)\n",
+                  value=f"**Strength:** {user_data['strength']}\n"
+                  f"**Dexterity:** {user_data['dexterity']}\n"
+                  f"**Vitality:** {user_data['vitality']}\n"
+                  f"**Cunning:** {user_data['cunning']}\n"
+                  f"**Magic:** {user_data['magic']}\n"
+                  f"**Luck:** {user_data['luck']}\n"
+                  f"**Stats Score:** {total_stats}\n"
+                  f"**Free Points:** {user_data['free_points']}\n",
                   inline=True)
 
   embed.add_field(name="__Equipment:__", value="N/A", inline=False)
@@ -474,7 +587,9 @@ async def leaderboard(ctx):
         f"{idx + 1}. {user['username']} - Level {user['level']} (EXP: {user['adventure_exp']})"
         for idx, user in enumerate(results.data)
     ])
-    await ctx.send(f"Top Players by Level and Experience:\n{leaderboard}")
+    await ctx.send(
+        f"Top Players by Level and Experience:\n(Top 3 in both Level and EXP of The Beta-Testers will get a reward.)\n{leaderboard}"
+    )
   else:
     await ctx.send("Could not retrieve the leaderboard at this time.")
 
@@ -666,62 +781,221 @@ async def combat(ctx):
   await ctx.send(embed=embed)
 
 
-class DummyCombat(View):
+# @bot.command(name="titles", aliases=["t"], help="Displays the user's titles.")
+# async def titles(ctx):
+#   embed_color = await get_embed_color(ctx.guild.id)
+#   user_id = ctx.author.id
 
-  def __init__(self, ctx, enemy_stats, player_stats):
-    super().__init__(timeout=180)
-    self.ctx = ctx
-    self.enemy_stats = enemy_stats
-    self.player_stats = player_stats
+#   # Fetch the latest user data from the database
+#   user_data_response = await bot.loop.run_in_executor(
+#       None, lambda: supabase.table('Users').select('*').eq(
+#           'discord_id', user_id).execute())
 
-  # When the 'Attack' button is pressed
-  @nextcord.ui.button(label='Attack', style=nextcord.ButtonStyle.red)
-  async def attack(self, button: Button, interaction: nextcord.Interaction):
-    # Simulate attack logic (this is just a placeholder)
-    self.enemy_stats['hp'] -= 15  # Dummy damage value
-    self.player_stats['hp'] -= 5  # Dummy damage taken
+#   # Check if the user has a profile
+#   if not user_data_response.data:
+#     await ctx.send(
+#         f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+#     return
 
-    # Update the embed with the new stats
-    embed = nextcord.Embed(title="Dungeon Floor 1",
-                           description="You encountered a Skeleton! ⚔️")
-    embed.add_field(
-        name="Skeleton's Stats",
-        value=f"{self.enemy_stats['hp']}/{self.enemy_stats['max_hp']} HP",
-        inline=True)
-    embed.add_field(
-        name="Your Stats",
-        value=f"{self.player_stats['hp']}/{self.player_stats['max_hp']} HP",
-        inline=True)
-    # Update the message with the new embed
-    await interaction.response.edit_message(embed=embed, view=self)
+#   # Fetch the inventory data for the user
+#   inventory_response = await bot.loop.run_in_executor(
+#       None, lambda: supabase.table('Inventory').select('titles').eq(
+#           'discord_id', user_id).execute())
 
-  # When the 'Flee' button is pressed
-  @nextcord.ui.button(label='Flee', style=nextcord.ButtonStyle.green)
-  async def flee(self, button: Button, interaction: nextcord.Interaction):
-    # End the combat
-    await interaction.response.send_message("You fled from the skeleton!",
-                                            ephemeral=False)
-    self.stop()  # This removes the buttons from the message
+#   if not inventory_response.data:
+#     await ctx.send("You don't have any titles yet.")
+#     return
+
+#   inventory_data = inventory_response.data[0]
+#   titles = inventory_data.get('titles', [])
+
+#   if not titles:
+#     await ctx.send("You don't have any titles yet.")
+#     return
+
+#   # Create an embed for the titles
+#   embed = Embed(title="Your Titles", color=embed_color)
+
+#   for title in titles:
+#     # Fetch the title name from the Titles table
+#     title_response = await bot.loop.run_in_executor(
+#         None, lambda: supabase.table('Titles').select('title_name').eq(
+#             'id', title['title_id']).execute()
+#     )  # Replace 'id' with your actual column name
+
+#     if title_response.data:
+#       title_name = title_response.data[0]['title_name']
+#       embed.add_field(name="ID: " + str(title['title_id']),
+#                       value=title_name,
+#                       inline=False)
+
+#   embed.add_field(name="", value="Use `title equip <id>`", inline=False)
+#   await ctx.send(embed=embed)
 
 
-@bot.command(name='dummycombat')
-async def dummycombat(ctx):
-  enemy_stats = {'hp': 50, 'max_hp': 50}
-  player_stats = {'hp': 100, 'max_hp': 100}
+@bot.group(invoke_without_command=True,
+           aliases=["t"],
+           help="Manage your titles.")
+async def titles(ctx):
+  # await ctx.send("Please use a subcommand, e.g., `::title equip <id>`.")
+  embed_color = await get_embed_color(ctx.guild.id)
+  user_id = ctx.author.id
 
-  embed = nextcord.Embed(title="Dungeon Floor 1",
-                         description="You encountered a Skeleton! ⚔️")
-  embed.add_field(name="Skeleton's Stats",
-                  value=f"{enemy_stats['hp']}/{enemy_stats['max_hp']} HP",
-                  inline=True)
-  embed.add_field(name="Your Stats",
-                  value=f"{player_stats['hp']}/{player_stats['max_hp']} HP",
-                  inline=True)
-  embed.set_thumbnail(
-      url="https://i.imgur.com/ZGPxFN2.jpg")  # Example image URL
+  # Fetch the latest user data from the database
+  user_data_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Users').select('*').eq(
+          'discord_id', user_id).execute())
 
-  view = DummyCombat(ctx, enemy_stats, player_stats)
-  await ctx.send(embed=embed, view=view)
+  # Check if the user has a profile
+  if not user_data_response.data:
+    await ctx.send(
+        f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+    return
+
+  # Fetch the inventory data for the user
+  inventory_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Inventory').select('titles').eq(
+          'discord_id', user_id).execute())
+
+  if not inventory_response.data:
+    await ctx.send("You don't have any titles yet.")
+    return
+
+  inventory_data = inventory_response.data[0]
+  titles = inventory_data.get('titles', [])
+
+  if not titles:
+    await ctx.send("You don't have any titles yet.")
+    return
+
+  # Create an embed for the titles
+  embed = Embed(title="Your Titles", color=embed_color)
+
+  for title in titles:
+    # Fetch the title name from the Titles table
+    title_response = await bot.loop.run_in_executor(
+        None, lambda: supabase.table('Titles').select('title_name').eq(
+            'id', title['title_id']).execute()
+    )  # Replace 'id' with your actual column name
+
+    if title_response.data:
+      title_name = title_response.data[0]['title_name']
+      embed.add_field(name="ID: " + str(title['title_id']),
+                      value=title_name,
+                      inline=False)
+
+  embed.add_field(name="", value="Use `titles equip <id>`", inline=False)
+  await ctx.send(embed=embed)
+
+
+@titles.command(help="Equip a title.")
+async def equip(ctx, title_id: int):
+  user_id = ctx.author.id
+
+  # Fetch the latest user data from the database
+  user_data_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Users').select('*').eq(
+          'discord_id', user_id).execute())
+
+  # Check if the user has a profile
+  if not user_data_response.data:
+    await ctx.send(
+        f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+    return
+
+  # Fetch the inventory data for the user
+  inventory_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Inventory').select('titles').eq(
+          'discord_id', user_id).execute())
+
+  if not inventory_response.data:
+    await ctx.send("You don't have any titles yet.")
+    return
+
+  inventory_data = inventory_response.data[0]
+  titles = inventory_data.get('titles', [])
+
+  if not titles:
+    await ctx.send("You don't have any titles yet.")
+    return
+
+  # Check if the user has the title they're trying to equip
+  title_to_equip = None
+  for title in titles:
+    if title['title_id'] == title_id:
+      title_to_equip = title
+      break
+
+  if not title_to_equip:
+    await ctx.send("You don't have this title.")
+    return
+
+  # Unequip the currently equipped title
+  for title in titles:
+    if title.get('equipped', False):
+      title['equipped'] = False
+
+  # Equip the new title
+  title_to_equip['equipped'] = True
+
+  # Update the inventory data
+  updated_inventory_data = {'titles': titles}
+  await bot.loop.run_in_executor(
+      None,
+      lambda: supabase.table('Inventory').update(updated_inventory_data).eq(
+          'discord_id', user_id).execute())
+
+  await ctx.send(f"You have equipped the title with ID {title_id}.")
+
+
+@bot.command(name="get_title", help="Gives the user a title.")
+async def get_title(ctx):
+  user_id = ctx.author.id
+  new_title_id = 4  # Change this to the title_id you want to give
+
+  # Fetch the inventory data for the user
+  inventory_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Inventory').select('titles').eq(
+          'discord_id', user_id).execute())
+
+  inventory_data = inventory_response.data
+  titles = []
+
+  # Check if inventory data exists for the user
+  if inventory_data:
+    inventory_record = inventory_data[0]
+    titles = inventory_record.get('titles', [])
+    if titles is None:
+      titles = []
+
+  # Check if the user already has the title
+  for title in titles:
+    if title['title_id'] == new_title_id:
+      await ctx.send("You already have this title!")
+      return  # Stop the function here
+
+  # Add the new title
+  new_title = {'title_id': new_title_id, 'equipped': False}
+  titles.append(new_title)
+
+  # Prepare the updated inventory data
+  updated_inventory_data = {'titles': titles}
+
+  # If inventory data exists, update it
+  if inventory_data:
+    await bot.loop.run_in_executor(
+        None,
+        lambda: supabase.table('Inventory').update(updated_inventory_data).eq(
+            'discord_id', user_id).execute())
+  else:
+    # If inventory data does not exist, create it
+    updated_inventory_data[
+        'discord_id'] = user_id  # Ensure the discord_id is included
+    await bot.loop.run_in_executor(
+        None, lambda: supabase.table('Inventory').insert(updated_inventory_data
+                                                         ).execute())
+
+  await ctx.send("You've been given a new title!")
 
 
 # -----------------------------------------------------------------------------
@@ -752,6 +1026,8 @@ try:
   suggest_setup(bot)
   bug_setup(bot)
   dungeon_setup(bot)
+  adv_setup(bot)
+  floor_setup(bot)
 
   keep_alive()
 

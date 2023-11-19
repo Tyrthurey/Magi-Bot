@@ -26,8 +26,10 @@ class Player(Combat_Entity):
     self.discord_user = discord_user
     self.load_data()
 
-  def __del__(self):
-    self.save_data()
+  # The timing of the destructor call in Python can be unpredictable,
+  # because it depends on the Python garbage collector which deallocates the object.
+  # def __del__(self):
+  #   self.save_data()
 
   def load_data(self):
     # Fetch player data from the 'Players' table using the supabase client
@@ -35,32 +37,35 @@ class Player(Combat_Entity):
         'discord_id', self.discord_user.id).execute()
     data = response.data[0] if response.data else {}
 
-    # Set player attributes
+    # Set player attributes with the new stats
     self.name = self.discord_user.display_name
     self.health = data.get('health', 10)
     self.max_health = data.get('max_health', 10)
-    self.atk = data.get('atk', 1)
-    self.defense = data.get('def', 1)
-    self.magic = data.get('magic', 1)
-    self.magic_def = data.get('magic_def', 1)
+    self.strength = data.get('strength', 5)
+    self.dexterity = data.get('dexterity', 5)
+    self.vitality = data.get('vitality', 5)
+    self.cunning = data.get('cunning', 5)
+    self.magic = data.get('magic', 5)
     self.level = data.get('level', 1)
     self.exp = data.get('adventure_exp', 0)
     self.gold = data.get('bal', 0)
     self.floor = data.get('floor', 1)
+    self.max_floor = data.get('max_floor', 1)
     self.using_command = data.get('using_command', False)
     self.dung_tutorial = data.get('dung_tutorial', True)
     self.adv_tuturial = data.get('adv_tutorial', True)
+    self.floor_tutorial = data.get('floor_tutorial', True)
     # ... and other attributes as needed
 
   def save_data(self):
-    # Save player data to the 'Players' table using the supabase client
     supabase.table('Players').update({
         'health': self.health,
         'max_health': self.max_health,
-        'atk': self.atk,
-        'def': self.defense,
+        'strength': self.strength,
+        'dexterity': self.dexterity,
+        'vitality': self.vitality,
+        'cunning': self.cunning,
         'magic': self.magic,
-        'magic_def': self.magic_def,
         'level': self.level,
         'adventure_exp': self.exp,
         'bal': self.gold,
@@ -94,6 +99,7 @@ class Player(Combat_Entity):
 
   def defend(self):
     # Increase defense stat temporarily for the next enemy attack
+    # currently does nothing
     self.is_defending = True
 
   def flee(self):

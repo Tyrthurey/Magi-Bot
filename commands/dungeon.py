@@ -39,6 +39,7 @@ async def dungeon(ctx, *mentions: nextcord.Member):
   # players = [Player(ctx.author)] + [Player(mention) for mention in mentions]
 
   player = Player(ctx.author)
+
   # Check if the player is already in a command
   if player.using_command:
     await ctx.send(

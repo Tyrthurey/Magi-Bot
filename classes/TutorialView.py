@@ -36,8 +36,6 @@ class TutorialView(nextcord.ui.View):
   @nextcord.ui.button(label="Skip", style=nextcord.ButtonStyle.red)
   async def skip_button(self, button: nextcord.ui.Button,
                         interaction: nextcord.Interaction):
-    await interaction.message.edit(
-        content="Tutorial skipped. Starting your dungeon adventure!",
-        view=None)
+    await interaction.message.edit(content="Tutorial skipped.", view=None)
     self.tutorial_done.set()  # Signal that the tutorial is skipped
     # Here you can call your dungeon logic or any other post-tutorial logic
