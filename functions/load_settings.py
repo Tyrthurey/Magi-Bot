@@ -45,6 +45,13 @@ async def get_prefix(bot, message):
 
 
 async def get_embed_color(guild_id: int):
+  if guild_id is None:
+    color_name = 'green'
+    # Use getattr to get the nextcord.Color method corresponding to the color_name
+    color_method = getattr(nextcord.Color, color_name.lower(),
+                           nextcord.Color.green)
+    # Call the method to get the color object
+    return color_method()
   # Query the embed_color setting from the Supabase for the specific guild
   response = supabase.table('ServerSettings').select('settings').eq(
       'server_id', guild_id).execute()

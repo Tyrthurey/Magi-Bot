@@ -30,7 +30,8 @@ class DungeonCombatView(CombatView):
   # ------------------------------------------------------------------------------------
 
   async def update_embed(self, interaction):
-    self.embed_color = await get_embed_color(self.guild_id)
+    self.embed_color = await get_embed_color(
+        None if ctx.guild is None else ctx.guild.id)
     # avatar_url = self.ctx.author.avatar.url if self.ctx.author.avatar else self.ctx.author.default_avatar.url
     embed = nextcord.Embed(title=f"Dungeon Floor {self.player.floor}",
                            color=self.embed_color)

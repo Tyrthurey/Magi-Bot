@@ -5,6 +5,25 @@ import math
 
 from classes.Player import Player
 from classes.Enemy import Enemy
+import random
+
+import logging
+
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import logging
+import os
+import time
+
+from functions.item_write import item_write
+
+logging.basicConfig(level=logging.INFO)
+
+load_dotenv()
+
+url = os.getenv("SUPABASE_URL") or ""
+key = os.getenv("SUPABASE_KEY") or ""
+supabase: Client = create_client(url, key)
 
 
 class CombatView(View):
@@ -15,10 +34,12 @@ class CombatView(View):
     self.player = player
     self.enemy = enemy
     self.combat_log = []
-    self.threat_level = enemy.determine_threat_level(player.atk +
-                                                     player.defense +
-                                                     player.magic +
-                                                     player.magic_def)
+    self.cooldowns = {}
+    self.threat_level = enemy.determine_threat_level(player.strength +
+                                                     player.dexterity +
+                                                     player.vitality +
+                                                     player.cunning +
+                                                     player.magic)
 
   # ------------------------------------------------------------------------------------
   # Timeout function
@@ -42,10 +63,10 @@ class CombatView(View):
     # ---------------------------------------------------------------------------------
 
     self.player.health = 0
-    self.player.exp = 0
+    self.player.adventure_exp = 0
     self.player.level = max(1, self.player.level - 1)
-    self.player.gold = max(
-        0, self.player.gold - math.floor(self.player.gold * 0.1))
+    self.player.bal = max(0,
+                          self.player.bal - math.floor(self.player.bal * 0.1))
     self.player.save_data()
 
     # ----------------------------------------------------------------------------------
@@ -70,20 +91,17 @@ class CombatView(View):
   # Death handler
   # ------------------------------------------------------------------------------------
 
-  async def handle_death(self, interaction: nextcord.Interaction):
-    # Call this method when the player's health reaches 0
-    self.combat_log.append(f"{self.player.name} has been defeated!")
-    await interaction.message.edit(
-        content=
-        f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.",
-        embed=None,
-        view=None)
+  # async def handle_death(self, interaction: nextcord.Interaction):
+  #   # Call this method when the player's health reaches 0
+  #   self.combat_log.append(f"{self.player.name} has been defeated!")
+  #   await self.ctx.send(
+  #       f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.")
 
-    # Update the embed to show the player's action
-    await self.update_embed(interaction)
-    self.player.set_using_command(False)  # Reset the using_command field
-    self.player.save_data()
-    self.stop()  # Stop the view to clean up
+  #   # Update the embed to show the player's action
+  #   await self.update_embed(interaction)
+  #   self.player.set_using_command(False)  # Reset the using_command field
+  #   self.player.save_data()
+  #   self.stop()  # Stop the view to clean up
 
   # ------------------------------------------------------------------------------------
   # Combat turn handler
@@ -93,12 +111,14 @@ class CombatView(View):
                                action: str):
     player_damage = 0
     enemy_damage = 0
+    is_defending = False
 
     # ----------------------------------------------------------------------------------
     # Cast spell
     # ----------------------------------------------------------------------------------
 
     if action == "spell":
+      self.player.is_defending = False
       player_damage = self.player.cast_spell(self.enemy)
 
       # Update combat log
@@ -111,6 +131,7 @@ class CombatView(View):
     # ----------------------------------------------------------------------------------
 
     elif action == "melee":
+      self.player.is_defending = False
       player_damage = self.player.melee_attack(self.enemy)
 
       # Update combat log
@@ -119,13 +140,11 @@ class CombatView(View):
 
     # ----------------------------------------------------------------------------------
     # Defend action
-    # Activates player.is_defending = True
     # Could be used by some class or something
     # ----------------------------------------------------------------------------------
 
     elif action == "defend":
-      self.player.defend()  #??
-      enemy_damage = math.floor(enemy_damage * 0.5)
+      self.player.defend()
 
       # Update combat log
       self.combat_log.append(f"**{self.player.name}** defends!")
@@ -135,6 +154,7 @@ class CombatView(View):
     # ----------------------------------------------------------------------------------
 
     elif action == "item":
+      self.player.is_defending = False
       # Implement item usage logic here
       pass
 
@@ -143,6 +163,7 @@ class CombatView(View):
     # ----------------------------------------------------------------------------------
 
     elif action == "flee":
+      self.player.is_defending = False
       if self.player.flee():
         await self.handle_flee(interaction)
         return
@@ -168,16 +189,49 @@ class CombatView(View):
     if self.enemy.health <= 0:
       await self.handle_enemy_defeat(interaction)
     else:
+      # Randomly select an action for the enemy
+      enemy_actions = [self.enemy.attack, self.enemy.prepare]
 
-      # ----------------------------------------------------------------------------------
-      # Show the mob's action
-      # ----------------------------------------------------------------------------------
+      if self.enemy.special_name != 'None':  # Only add special_attack if special_name is not None
+        enemy_actions.append(self.enemy.special_attack)
 
-      enemy_damage = self.enemy.attack(self.player)
+      if self.enemy.is_preparing:
+        enemy_action = self.enemy.strong_attack
+        self.enemy.is_preparing = False
+      else:
+        enemy_action = random.choice(enemy_actions)
 
-      self.combat_log.append(
-          f"{self.enemy.name} attacks for {enemy_damage} damage!")
+      enemy_damage = enemy_action(self.player)
 
+      # Update the combat log based on the enemy's action
+      if enemy_action == self.enemy.prepare:
+        self.combat_log.append(
+            f"{self.enemy.name} is preparing for a strong attack!")
+      elif enemy_action == self.enemy.special_attack:
+        self.combat_log.append(
+            f"{self.enemy.name} uses {self.enemy.special_name} for `{enemy_damage}` damage!"
+        )
+      elif enemy_action == self.enemy.strong_attack:
+        self.combat_log.append(
+            f"{self.enemy.name} uses a strong attack for `{enemy_damage}` damage!"
+        )
+      else:
+        self.combat_log.append(
+            f"{self.enemy.name} attacks for `{enemy_damage}` damage!")
+
+      if random.random() < 0.1:  #10% chance for an extra quick attack
+        enemy_action = self.enemy.quick_attack
+        enemy_damage = enemy_action(self.player)
+        self.combat_log.append(
+            f"{self.enemy.name} uses a quick attack for `{enemy_damage}` damage!"
+        )
+
+      await self.update_embed(interaction)
+
+    if self.player.health <= 0:
+      is_dead = True
+      await self.handle_death(interaction)
+    else:
       # ----------------------------------------------------------------------------------
       # Update the embed to show the mobs's action
       # ----------------------------------------------------------------------------------
@@ -188,7 +242,7 @@ class CombatView(View):
     # Check for end of combat
     # ----------------------------------------------------------------------------------
 
-    if self.player.health <= 0:
+    if self.player.health <= 0 and is_dead == False:
       await self.handle_death(interaction)
     else:
       await self.update_embed(interaction)
@@ -202,6 +256,7 @@ class CombatView(View):
     await self.ctx.send(
         f"**{self.player.name}** has fled from the battle! Coward.")
     self.player.set_using_command(False)  # Reset the using_command field
+    self.player.save_data()
     self.stop()  # Stop the view to clean up
     pass
 
@@ -209,12 +264,59 @@ class CombatView(View):
   # Handle combat end due to enemy defeat
   # ------------------------------------------------------------------------------------
 
-  async def handle_enemy_defeat(self, interaction: nextcord.Interaction):
-    self.combat_log.append(f"{self.enemy.name} has been defeated!")
-    await self.ctx.send(
-        f"**{self.player.name}** has defeated the {self.enemy.name}!")
-    # Update the embed to show the player's action
-    await self.update_embed(interaction)
-    self.player.set_using_command(False)  # Reset the using_command field
-    self.stop()  # Stop the view to clean up
-    pass
+  # async def handle_enemy_defeat(self, interaction: nextcord.Interaction):
+  #   self.combat_log.append(f"{self.enemy.name} has been defeated!")
+
+  #   # Determine if an item is dropped
+  #   drop_chance = self.enemy.drop_chance
+  #   drop_roll = random.randint(1, 100)  # Roll a number between 1 and 100
+  #   item_dropped = drop_roll <= drop_chance  # Determine if the roll is within the drop chance
+
+  #   print(
+  #       "----------------------------------------------------------------------------------"
+  #   )
+  #   print("Drop chance: ")
+  #   print(drop_chance)
+  #   print(
+  #       "----------------------------------------------------------------------------------"
+  #   )
+  #   print("Drop roll: ")
+  #   print(drop_roll)
+  #   print(
+  #       "----------------------------------------------------------------------------------"
+  #   )
+  #   print("Item dropped: ")
+  #   print(item_dropped)
+
+  #   # If an item is dropped, add it to the player's inventory
+  #   if item_dropped:
+  #     dropped_item_id = self.enemy.drop_item_id
+  #     await item_write(self.ctx.author.id, dropped_item_id, 1)  # Amount is 1
+
+  #   # Now send a message to the user with the outcome of the hunt
+  #   # Including whether an item was dropped and which mob was encountered
+  #   item_name = "nothing"
+  #   if item_dropped:
+  #     # Fetch the item's display name from Items table
+  #     item_response = await asyncio.get_event_loop().run_in_executor(
+  #         None, lambda: supabase.table('Items').select('item_displayname').eq(
+  #             'item_id', dropped_item_id).execute())
+  #     if item_response.data:
+  #       item_name = item_response.data[0]['item_displayname'].lower()
+
+  #   print(
+  #       "----------------------------------------------------------------------------------"
+  #   )
+  #   print("Item name: ")
+  #   print(item_name)
+
+  #   await self.ctx.send(
+  #       f"**{self.player.name}** has defeated the {self.enemy.name}!"
+  #       f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}"
+  #   )
+
+  #   # Update the embed to show the player's action
+  #   await self.update_embed(interaction)
+  #   self.player.set_using_command(False)  # Reset the using_command field
+  #   self.stop()  # Stop the view to clean up
+  #   pass

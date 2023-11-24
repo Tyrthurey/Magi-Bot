@@ -37,7 +37,8 @@ async def submit_bug(ctx, user_id, username, bug_description):
 # Function to create the confirmation embed
 async def confirm_bug(ctx, bug_description):
   avatar_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
-  embed_color = await get_embed_color(ctx.guild.id)
+  embed_color = await get_embed_color(
+      None if ctx.guild is None else ctx.guild.id)
   embed = nextcord.Embed(
       title="Bug Report Confirmation",
       description=f"**Your Bug Report:**\n{bug_description}",

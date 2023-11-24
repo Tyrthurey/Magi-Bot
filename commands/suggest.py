@@ -37,7 +37,8 @@ async def submit_suggestion(ctx, user_id, username, suggestion):
 # Function to create the confirmation embed
 async def confirm_suggestion(ctx, suggestion):
   avatar_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
-  embed_color = await get_embed_color(ctx.guild.id)
+  embed_color = await get_embed_color(
+      None if ctx.guild is None else ctx.guild.id)
   embed = nextcord.Embed(title="Suggestion Confirmation",
                          description=f"**Your Suggestion:**\n{suggestion}",
                          color=embed_color)

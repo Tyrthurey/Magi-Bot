@@ -8,10 +8,14 @@ from supabase import Client, create_client
 import nextcord
 from nextcord.ext import commands
 
+import random
+
 from functions.check_inventory import check_inventory
 from functions.item_write import item_write
 from functions.load_settings import command_prefix
 from functions.cooldown_manager import cooldown_manager_instance
+
+from classes.Player import Player
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +65,7 @@ async def using(ctx, *args):
   item_data = item_response.data[0]
   ITEM_ID = item_data['item_id']
   user_id = ctx.author.id
+  player = Player(ctx.author)
 
   # Check if the user has a health potion in inventory
   inventory_response = await check_inventory(user_id, ITEM_ID, 'item')
@@ -83,11 +88,33 @@ async def using(ctx, *args):
     if inventory_response > 0:
       # Decrease the pill count by one
       await item_write(user_id, ITEM_ID, -1)
-
-      await ctx.send(f"**{ctx.author}** has healed to full HP!")
+      heal_amount = random.randint(15, 25)
+      player.health += heal_amount
+      if player.health >= player.max_health:
+        player.health = player.max_health
+      player.update_health()
+      await ctx.send(
+          f"**{ctx.author}** has used a <:healthpotion:1175114505013968948> **Health Potion (Lesser)**\n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
+      )
     else:
       await ctx.send(
-          "You don't have any heal potions. Sadge.\nUse `::buy health potion` to buy some!"
+          "You don't have any Lesser Health Potions. Sadge.\nUse `::buy health potion` to buy some!"
+      )
+  elif ITEM_ID == 2:
+    if inventory_response > 0:
+      # Decrease the pill count by one
+      await item_write(user_id, ITEM_ID, -1)
+      heal_amount = random.randint(30, 50)
+      player.health += heal_amount
+      if player.health >= player.max_health:
+        player.health = player.max_health
+      player.update_health()
+      await ctx.send(
+          f"**{ctx.author}** has used a <:healthpotion:1175114505013968948> **Health Potion (Minor)**\n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
+      )
+    else:
+      await ctx.send(
+          "You don't have any Minor Health Potions. Sadge.\nUse `::buy health potion` to buy some!"
       )
   else:
     await ctx.send("This item cannot be used. Duh.\nCheck your spelling.")
@@ -96,7 +123,7 @@ async def using(ctx, *args):
 @commands.command(name="use", aliases=["eat", "drink"], help="Uses an item.")
 async def use(ctx, *args):
   user_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Players').select('using_command').eq(
+      None, lambda: supabase.table('Users').select('using_command').eq(
           'discord_id', ctx.author.id).execute())
   if not user_data_response.data:
     await ctx.send("You do not have a profile yet.")

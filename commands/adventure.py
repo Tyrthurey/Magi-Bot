@@ -28,9 +28,19 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
+# New function to get location name
+async def get_location_name(location_id):
+  location_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Areas').select('name').eq(
+          'id', location_id).execute())
+  return location_response.data[0][
+      'name'] if location_response.data else 'Unknown'
+
+
 # Adventure command...
-@commands.command(name="adventure")
-@has_permissions(administrator=True)
+@commands.command(name="adventure",
+                  aliases=["a", "adv"],
+                  help="Go on an awesome adventure!")
 async def adventure(ctx):
 
   player = Player(ctx.author)
@@ -41,32 +51,36 @@ async def adventure(ctx):
     return
   player.set_using_command(True)
 
-  # Define your tutorial messages here
-  tutorial_messages = [
-      "Welcome to adventurin!",  # Tutorial part 1
-      "Monsters are random",  # Tutorial part 2
-      "Stats affect you!",  # Tutorial part 3
-      # Add all the tutorial parts here...
-  ]
+  # # Define your tutorial messages here
+  # tutorial_messages = [
+  #     "Welcome to adventurin!",  # Tutorial part 1
+  #     "Monsters are random",  # Tutorial part 2
+  #     "Stats affect you!",  # Tutorial part 3
+  #     # Add all the tutorial parts here...
+  # ]
 
-  # Check if the user is new and should see the tutorial
-  if player.dung_tutorial:
-    # Show the tutorial
-    tutorial_view = TutorialView(ctx, tutorial_messages)
-    await ctx.send(content=tutorial_messages[0], view=tutorial_view)
-    await tutorial_view.tutorial_done.wait(
-    )  # Wait for the tutorial to be done
+  # # Check if the user is new and should see the tutorial
+  # if player.dung_tutorial:
+  #   # Show the tutorial
+  #   tutorial_view = TutorialView(ctx, tutorial_messages)
+  #   await ctx.send(content=tutorial_messages[0], view=tutorial_view)
+  #   await tutorial_view.tutorial_done.wait(
+  #   )  # Wait for the tutorial to be done
 
-  player_stats_total = player.atk + player.defense + player.magic + player.magic_def
+  player_stats_total = player.strength + player.dexterity + player.vitality + player.cunning + player.magic
+
+  location = player.location
+  location_name = await get_location_name(location)
 
   # Load mobs list for the current floor and select a random mob
   mob_data_response = await asyncio.get_event_loop().run_in_executor(
       None, lambda: supabase.table('Mobs').select('*').eq(
-          'floor', player.floor).execute())
+          'area', player.location).execute())
 
   mobs_list = mob_data_response.data if mob_data_response.data else []
   if not mobs_list:
-    await ctx.send(f"No creatures to hunt on floor {player.floor}.")
+    await ctx.send(f"No creatures to hunt in {location_name}.")
+    player.set_using_command(False)
     return
 
   selected_mob = random.choice(
@@ -80,10 +94,7 @@ async def adventure(ctx):
 
   # Create the initial embed with player and enemy information
   embed = nextcord.Embed(title=f"{player.name}'s adventure")
-  embed.set_thumbnail(
-      url=
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Crossed_swords.svg/240px-Crossed_swords.svg.png'
-  )
+  embed.set_thumbnail(url='')
   embed.add_field(name=f"A wild {enemy.name} appears!",
                   value=f"**Threat Level:** {threat_level}\n{str(enemy)}",
                   inline=False)

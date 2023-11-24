@@ -17,7 +17,8 @@ supabase: Client = create_client(url, key)
 
 
 async def shopping(ctx):
-  embed_color = await get_embed_color(ctx.guild.id)
+  embed_color = await get_embed_color(
+      None if ctx.guild is None else ctx.guild.id)
   user = ctx.author
 
   user_id = user.id
@@ -26,7 +27,7 @@ async def shopping(ctx):
   # avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
   # Fetch the latest user data from the database
   user_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Players').select('bal').eq(
+      None, lambda: supabase.table('Users').select('bal').eq(
           'discord_id', user_id).execute())
 
   # Check if the user has a profile

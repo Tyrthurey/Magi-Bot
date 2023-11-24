@@ -399,7 +399,10 @@ async def hunt(ctx):
         "You're already in a command. Finish it before starting another.")
     return
 
-  await hunting(ctx, 1)
+  await ctx.send(
+      "Use ::`adventure` from now on! \nHunt is getting its guts reworked, so please wait a few days."
+  )
+  # await hunting(ctx, 1)
 
 
 # # Command function
