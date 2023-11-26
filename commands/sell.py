@@ -75,7 +75,7 @@ async def selling(ctx, *args):
     if inventory_response > 0 and (inventory_response >= amount or all_items):
       amount = inventory_response if all_items else amount  # Sell all items if "all" was specified
       balance_response = await asyncio.get_event_loop().run_in_executor(
-          None, lambda: supabase.table('Players').select('bal').eq(
+          None, lambda: supabase.table('Users').select('bal').eq(
               'discord_id', user_id).execute())
 
       if balance_response.data:
@@ -88,7 +88,7 @@ async def selling(ctx, *args):
 
         # Update the player's balance
         await asyncio.get_event_loop().run_in_executor(
-            None, lambda: supabase.table('Players').update({
+            None, lambda: supabase.table('Users').update({
                 'bal': new_balance
             }).eq('discord_id', user_id).execute())
 
@@ -104,7 +104,7 @@ async def selling(ctx, *args):
 @commands.command(name="sell", help="Sell your stuff.")
 async def sell(ctx, *args):
   user_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Players').select('using_command').eq(
+      None, lambda: supabase.table('Users').select('using_command').eq(
           'discord_id', ctx.author.id).execute())
   if not user_data_response.data:
     await ctx.send("You do not have a profile yet.")

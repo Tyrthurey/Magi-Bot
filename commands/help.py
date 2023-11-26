@@ -22,6 +22,24 @@ async def helping(ctx):
       None if ctx.guild is None else ctx.guild.id)
 
   embed = nextcord.Embed(title='Help Menu', color=embed_color)
+  embed.add_field(
+      name="",
+      value=
+      f"Welcome to the help menu!\nTo start your adventure, use `{command_prefix_str}start`!",
+      inline=False)
+  embed.add_field(
+      name="",
+      value=
+      f"You can earn titles and achievements!\n Simply complete various tasks and milestones!",
+      inline=False)
+  embed.add_field(
+      name="",
+      value=
+      f"You can use `{command_prefix_str}area` to move around! \nAnd `{command_prefix_str}profile` to see your stats!",
+      inline=False)
+  embed.add_field(name="",
+                  value=f"Soon, you will even have access to a tutorial!",
+                  inline=False)
   embed.add_field(name="",
                   value=f"Usage: `{command_prefix_str}help <command>`",
                   inline=False)
@@ -39,7 +57,7 @@ async def helping(ctx):
 
 # The command decorator should not expect an additional 'bot' argument.
 @commands.command(name="help",
-                  aliases=["?"],
+                  aliases=["?", "dio"],
                   help="Shows help information for commands.")
 async def help(ctx, command_name: str = None):
   if command_name is None:

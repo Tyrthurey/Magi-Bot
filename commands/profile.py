@@ -141,6 +141,11 @@ class StatView(View):
         await self.get_achievement_cog.get_achievement(self.ctx,
                                                        self.player.user_id, 6)
 
+      # Award another achievement if the player passes 10 points in any of the primary stats
+      if self.player.base_magic >= 10 and self.player.base_cunning >= 10 and self.player.base_vitality >= 10 and self.player.base_dexterity >= 10 and self.player.base_strength >= 10:
+        await self.get_achievement_cog.get_achievement(self.ctx,
+                                                       self.player.user_id, 8)
+
   except nextcord.HTTPException as e:
     print(f"HTTPException: {e.text}")
 

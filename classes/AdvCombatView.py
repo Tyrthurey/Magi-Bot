@@ -197,7 +197,9 @@ class AdvCombatView(CombatView):
     print("------------------------------------------------------------")
 
     # Calculate the experience gained
-    additional_exp = random.randint(10, 40)
+    additional_exp = random.randint(
+        10, 40) + self.player.location * random.randint(
+            10, 20) + self.player.location * 10
     self.player.adventure_exp = self.player.adventure_exp + additional_exp
 
     # Fetch level progression data from Supabase
@@ -215,8 +217,80 @@ class AdvCombatView(CombatView):
         str(self.player.level + 1), {}).get('total_level_exp', float('inf'))
     level_up = self.player.adventure_exp >= needed_exp_for_next_level
 
-    gold_reward = random.randint(50, 90)
+    gold_reward = random.randint(50,
+                                 90) + self.player.location * random.randint(
+                                     20, 50) + self.player.location * 10
     self.player.bal = self.player.bal + gold_reward
+
+    stat_ratio = self.player.damage / self.enemy.atk
+    # Message templates
+    message2_templates = [
+        f"The {self.enemy.name} never stood a chance against **{self.player.name}**'s DOUBLE TROUBLE ATTACK!!!",
+        f"With TWICE the power, **{self.player.name}** sends the {self.enemy.name} flying into next week!!",
+        f"**{self.player.name}**'s power level is OVER 9000, annihilating the {self.enemy.name} with DOUBLE FORCE!!!",
+        f"The earth quakes as **{self.player.name}** unleashes a DUAL-WIELD SMASH on the {self.enemy.name}!!!",
+        f"Watch out! **{self.player.name}**'s DOUBLE DRAGON STRIKE turns the {self.enemy.name} into stardust!!",
+        f"It's a one-hit K.O.! **{self.player.name}**'s TWIN FIST FURY decimates the {self.enemy.name}!!",
+        f"**{self.player.name}** channels DOUBLE SPIRIT ENERGY and obliterates the {self.enemy.name}!!!",
+        f"With a TWOFOLD SLASH, **{self.player.name}** cuts the {self.enemy.name} down to size!!",
+        f"**{self.player.name}**'s DOUBLE DASH DANCE leaves the {self.enemy.name} in a dizzy daze!!!",
+        f"In a flash, **{self.player.name}**'s TWIN TORNADO TECHNIQUE whirls the {self.enemy.name} away!!!"
+    ]
+
+    message3_templates = [
+        f"**{self.player.name}** ABSOLUTELY DECIMATED a {self.enemy.name} by having TRIPLE stats!?! \n",
+        f"**{self.player.name}** triples the terror with a TRI-FORCE TAKEDOWN on the {self.enemy.name}!!!\n",
+        f"THREE TIMES THE MIGHT! **{self.player.name}** launches a TRIPLE THUNDER STRIKE on the {self.enemy.name}!!\n",
+        f"**{self.player.name}** summons THREE DRAGONS OF DOOM to devour the {self.enemy.name}!!\n",
+        f"It's a TRIPLE TROUBLE TRAMPLE! **{self.player.name}** stomps the {self.enemy.name} into oblivion!!!\n",
+        f"With TRIPLE SWORD SYMPHONY, **{self.player.name}** slices the {self.enemy.name} into cosmic confetti!!\n",
+        f"**{self.player.name}**'s TRIPLE ENERGY ECLIPSE blasts the {self.enemy.name} into another dimension!!\n",
+        f"In an epic showdown, **{self.player.name}**'s TRI-BEAM BLAST vaporizes the {self.enemy.name}!!!\n",
+        f"**{self.player.name}** performs a TRIPLE SPIRIT SHOT, sending the {self.enemy.name} to the shadow realm!!\n",
+        f"THREE-HEADED HYDRA HAVOC! **{self.player.name}**'s attack leaves the {self.enemy.name} in ruins!!\n",
+        f"**{self.player.name}** unleashes a TRIPLE WIND WHIRLWIND, sweeping the {self.enemy.name} off their feet!!\n"
+    ]
+
+    message4_templates = [
+        f"QUAD DAMAGE! **{self.player.name}**'s FOUR-FOLD FURY flattens the {self.enemy.name}!!!\n",
+        f"In a blaze of glory, **{self.player.name}**'s QUADRUPLE QUASAR QUEST incinerates the {self.enemy.name}!!!\n",
+        f"**{self.player.name}**'s FOUR HORSEMEN CHARGE tramples the {self.enemy.name} into dust!!!\n",
+        f"With a QUADRUPLE KAMEHAMEHA, **{self.player.name}** blasts the {self.enemy.name} to the next galaxy!!\n",
+        f"QUAD-LOCKED! **{self.player.name}** locks the {self.enemy.name} in a four-dimensional prison!!!\n",
+        f"FOUR-FISTED FRENZY! **{self.player.name}** pummels the {self.enemy.name} with unstoppable force!!\n",
+        f"The {self.enemy.name} is caught in **{self.player.name}**'s QUADRUPLE SPIRAL SLASH vortex!!!\n",
+        f"**{self.player.name}** executes a PERFECT QUADRUPLE COMBO, sending the {self.enemy.name} to oblivion!!\n",
+        f"QUADRUPLE CLONE CATASTROPHE! **{self.player.name}**'s clones overwhelm the {self.enemy.name}!!\n",
+        f"In a flash of light, **{self.player.name}**'s QUADRA DRAGON DANCE devours the {self.enemy.name}!!\n",
+    ]
+
+    message2_template = random.choice(message2_templates)
+    message3_template = random.choice(message3_templates)
+    message4_template = random.choice(message4_templates)
+
+    message1 = (
+        f"**{self.player.name}** BULLIED THE :broken_heart: HEARTBROKEN {self.enemy.name} SO HARD THEIR HEART STOPPED DUE TO THEIR ***OCTUPLE STATS***!!!!?!?!?!?!?! \n"
+        if stat_ratio >= 8 else
+        f"**{self.player.name}** made {self.enemy.name} happy ONLY TO DESTROY THEIR WHOLE LIFE AND MARRIAGE :broken_heart: due to having ***SEPTUPLE*** the stats!!!!????????? \n"
+        if stat_ratio >= 7 else
+        f"**{self.player.name}** **DESTROYS EVERYTHING** THE {self.enemy.name} LOVES by having ***SEXTUPLE*** their stats!!!!???? \n"
+        if stat_ratio >= 6 else
+        f"**{self.player.name}** DOES UNSPEAKABLE THINGS to the poor {self.enemy.name} simply by having ***PENTUPLE*** the stats!!!! \n"
+        if stat_ratio >= 5 else message4_template
+        if stat_ratio >= 4 else message3_template if stat_ratio >= 3 else
+        f"**{self.player.name}** killed a {self.enemy.name}! \n")
+
+    message2 = (
+        f"**{self.player.name}** BULLIED THE :broken_heart: HEARTBROKEN {self.enemy.name} SO HARD THEIR HEART STOPPED DUE TO THEIR ***OCTAPLE STATS***!!!!?!?!?!?!?! \n"
+        if stat_ratio >= 8 else
+        f"**{self.player.name}** made {self.enemy.name} happy ONLY TO DESTROY THEIR WHOLE LIFE AND :broken_heart: MARRIAGE due to having ***SEPTUPLE*** the stats!!!!????????? \n"
+        if stat_ratio >= 7 else
+        f"**{self.player.name}** **DESTROYS EVERYTHING** THE {self.enemy.name} LOVES by having ***SEXTUPLE*** their stats!!!!???? \n"
+        if stat_ratio >= 6 else
+        f"**{self.player.name}** DOES UNSPEAKABLE THINGS to the poor {self.enemy.name} simply by having ***PENTUPLE*** the stats!!!! \n"
+        if stat_ratio >= 5 else message4_template
+        if stat_ratio >= 4 else message3_template if stat_ratio >= 3 else
+        f"**{self.player.name}** killed a {self.enemy.name}! \n")
 
     if level_up:
       self.player.level = self.player.level + 1
@@ -224,7 +298,7 @@ class AdvCombatView(CombatView):
       self.player.free_points = self.player.free_points + 5
 
     await self.ctx.send(
-        f"**{self.player.name}** has defeated the {self.enemy.name}!\n"
+        f'{message1}'
         f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
         f"Current Health: `{self.player.health}/{self.player.max_health}`HP. \n"
         f"{f':arrow_up: Level Up to lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}"

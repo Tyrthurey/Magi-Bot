@@ -30,7 +30,7 @@ class GetTitle(commands.Cog):
     # Check if the user already has the title
     for title in titles:
       if title['title_id'] == new_title_id:
-        await ctx.send("You already have this title!")
+        await ctx.send(f"You already have this title! (ID: `{new_title_id}`)")
         return  # Stop the function here
 
     # Add the new title
@@ -53,7 +53,7 @@ class GetTitle(commands.Cog):
           None, lambda: supabase.table('Inventory').insert(
               updated_inventory_data).execute())
 
-    await ctx.send("You've been given a new title!")
+    await ctx.send("You've been given a new title! \nUse `::titles` to see your titles.")
 
 
 def setup(bot):
