@@ -143,7 +143,7 @@ def homepage():
 
 def fetch_leaderboard():
   # Query the database, filtering out bots and getting the top players
-  results = supabase.table('Players').select('*').eq('is_bot', False).execute()
+  results = supabase.table('Users').select('*').execute()
 
   if results.data:
     # Sort the players first by level in descending order, then by adventure_exp in descending order

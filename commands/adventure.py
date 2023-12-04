@@ -18,6 +18,7 @@ from classes.AdvCombatView import AdvCombatView
 from classes.TutorialView import TutorialView
 from classes.Enemy import Enemy
 from classes.Player import Player
+from functions.cooldown_manager import cooldown_manager_instance as cooldowns
 
 logging.basicConfig(level=logging.INFO)
 
@@ -49,6 +50,37 @@ async def adventure(ctx):
     await ctx.send(
         "You're already in a command. Finish it before starting another.")
     return
+
+  action_id = 4
+
+  command_data_response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Actions').select('*').eq('id', action_id).
+      execute())
+
+  if not command_data_response.data:
+    await ctx.send("This command does not exist.")
+    return
+
+  command_data = command_data_response.data[0]
+  command_name = command_data['name']
+  command_cd = command_data['normal_cd']
+  # command_patreon_cd = command_data['patreon_cd']
+
+  user_id = ctx.author.id
+  # command_name = ctx.command.name
+  cooldown_remaining = cooldowns.get_cooldown(user_id, command_name)
+
+  if cooldown_remaining > 0:
+    await ctx.send(
+        f"This command is on cooldown. You can use it again in `{cooldown_remaining:.2f}` seconds."
+    )
+    return
+
+  cooldown = command_cd
+
+  # Set the cooldown for the hunt command
+  cooldowns.set_cooldown(user_id, command_name, cooldown)
+
   player.set_using_command(True)
 
   # # Define your tutorial messages here
@@ -118,6 +150,10 @@ async def adventure(ctx):
   # Start combat with the initial embed
   view = AdvCombatView(ctx, player, enemy)
   await ctx.send(embed=embed, view=view)
+
+
+
+  
 
 
 # Export the command function to be imported in main.py

@@ -4,6 +4,7 @@ from nextcord import Embed, ButtonStyle, ui
 from nextcord.ui import Button, View
 from main import bot, supabase  # Import necessary objects from your project
 from functions.load_settings import get_embed_color
+from classes.Player import Player
 
 
 class Area(commands.Cog):
@@ -13,7 +14,7 @@ class Area(commands.Cog):
 
   @commands.group(invoke_without_command=True,
                   aliases=["areas"],
-                  help="Manage your area.")
+                  help="See area information.")
   async def area(self, ctx):
     user_id = ctx.author.id
 
@@ -58,6 +59,13 @@ class Area(commands.Cog):
   @area.command(name="move", help="Move to a different area.")
   async def area_move(self, ctx, area_id: int):
     user_id = ctx.author.id
+
+    player = Player(ctx.author)
+    # Check if the player is already in a command
+    if player.using_command:
+      await ctx.send(
+          "You're already in a command. Finish it before starting another.")
+      return
 
     # Fetch area data
     area_response = await bot.loop.run_in_executor(

@@ -116,6 +116,22 @@ async def using(ctx, *args):
       await ctx.send(
           "You don't have any Minor Health Potions. Sadge.\nUse `::buy health potion` to buy some!"
       )
+  elif ITEM_ID == 17:
+    if inventory_response > 0:
+      # Decrease the pill count by one
+      await item_write(user_id, ITEM_ID, -1)
+      heal_amount = random.randint(100, 300)
+      player.health += heal_amount
+      if player.health >= player.max_health:
+        player.health = player.max_health
+      player.update_health()
+      await ctx.send(
+          f"**{ctx.author}** has used a <:healthpotion:1175114505013968948> **Health Potion (Major)**\n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
+      )
+    else:
+      await ctx.send(
+          "You don't have any Major Health Potions. Sadge.\nUse `::buy health potion` to buy some!"
+      )
   else:
     await ctx.send("This item cannot be used. Duh.\nCheck your spelling.")
 

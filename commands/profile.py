@@ -26,6 +26,11 @@ class StatView(View):
     self.needed_adv_level_exp = needed_adv_level_exp
     self.get_achievement_cog = get_achievement_cog
 
+  async def disable_buttons(self):
+    for item in self.children:
+      if isinstance(item, Button):
+        item.disabled = True
+
   try:
 
     @nextcord.ui.button(label="+STR", style=nextcord.ButtonStyle.primary)
@@ -38,6 +43,7 @@ class StatView(View):
         self.player.base_strength += 1
         self.player.free_points -= 1
         self.player.save_strength_choice()
+        await self.check_and_update_class(interaction)
         await self.update_embed(interaction)
 
     @nextcord.ui.button(label="+DEX", style=nextcord.ButtonStyle.primary)
@@ -50,6 +56,7 @@ class StatView(View):
         self.player.base_dexterity += 1
         self.player.free_points -= 1
         self.player.save_dexterity_choice()
+        await self.check_and_update_class(interaction)
         await self.update_embed(interaction)
 
     @nextcord.ui.button(label="+VIT", style=nextcord.ButtonStyle.primary)
@@ -62,6 +69,7 @@ class StatView(View):
         self.player.base_vitality += 1
         self.player.free_points -= 1
         self.player.save_vitality_choice()
+        await self.check_and_update_class(interaction)
         await self.update_embed(interaction)
 
     @nextcord.ui.button(label="+SAV", style=nextcord.ButtonStyle.primary)
@@ -74,6 +82,7 @@ class StatView(View):
         self.player.base_cunning += 1
         self.player.free_points -= 1
         self.player.save_cunning_choice()
+        await self.check_and_update_class(interaction)
         await self.update_embed(interaction)
 
     @nextcord.ui.button(label="+MAG", style=nextcord.ButtonStyle.primary)
@@ -86,7 +95,59 @@ class StatView(View):
         self.player.base_magic += 1
         self.player.free_points -= 1
         self.player.save_magic_choice()
+        await self.check_and_update_class(interaction)
         await self.update_embed(interaction)
+
+    async def check_and_update_class(self, interaction):
+      # Retrieve and sort the player's stats
+      current_stats = {
+          'Strength': self.player.base_strength,
+          'Vitality': self.player.base_vitality,
+          'Dexterity': self.player.base_dexterity,
+          'Savvy': self.player.base_cunning,
+          'Magic': self.player.base_magic,
+          'Luck': self.player.luck
+      }
+
+      # Sort stats by value, then alphabetically
+      sorted_stats = sorted(current_stats.items(), key=lambda x: (-x[1], x[0]))
+      top_stat_name, top_stat_value = sorted_stats[0]
+
+      # Fetch all classes
+      classes_response = await bot.loop.run_in_executor(
+          None, lambda: supabase.table('Classes').select('*').execute())
+
+      best_match_class = None
+
+      if classes_response.data:
+        for class_data in classes_response.data:
+          # Check if the top stat meets the primary requirement
+          if (class_data['required_top_stat_name'] == top_stat_name
+              and class_data['required_top_stat_value'] <= top_stat_value):
+            # Check if any stat meets the secondary requirement
+            for stat_name, stat_value in current_stats.items():
+              if (class_data['required_secondary_stat_name'] == stat_name and
+                  class_data['required_secondary_stat_value'] <= stat_value):
+                # This class matches the requirements
+                best_match_class = class_data
+                break
+
+      if best_match_class and best_match_class[
+          'class_id'] != self.player.class_id:
+        # Update the player's class in the database
+        update_response = await bot.loop.run_in_executor(
+            None, lambda: supabase.table('Users').update({
+                'class':
+                best_match_class['class_id']
+            }).eq('discord_id', self.player.user_id).execute())
+
+        # Update was successful
+        self.player.class_id = best_match_class['class_id']
+        await interaction.response.send_message(
+            f"**{self.username}**, your class has been changed to **{best_match_class['class_displayname']}**!"
+        )
+        await self.get_achievement_cog.get_achievement(self.ctx,
+                                                       self.player.user_id, 9)
 
     async def update_embed(self, interaction):
       # Update your embed here with new player stats
@@ -154,6 +215,8 @@ class Profile(commands.Cog):
 
   def __init__(self, bot):
     self.bot = bot
+
+  last_profile_views = {}
 
   # New function to get location name
   async def get_location_name(self, location_id):
@@ -227,10 +290,23 @@ class Profile(commands.Cog):
     location_name = await self.get_location_name(location)
 
     get_achievement_cog = GetAchievement(self.bot)
-    # Create and send the embed with the buttons
+
+    # Check if the user is calling their own profile to decide if stat buttons should be shown
+    show_buttons = user is None or user.id == ctx.author.id
+
+    # Disable buttons of the previous profile view for the user if it exists
+    last_view = self.last_profile_views.get(ctx.author.id)
+    if last_view:
+      await last_view.disable_buttons(
+      )  # Method to disable buttons in StatView
+      await last_view.message.edit(
+          view=last_view)  # Update the previous message to remove buttons
+
+    # Create a new StatView only if stat buttons should be shown
     view = StatView(bot, ctx, player, user_title, embed_color, avatar_url,
                     location_name, username, needed_adv_level_exp,
-                    get_achievement_cog) if player.free_points > 0 else None
+                    get_achievement_cog
+                    ) if show_buttons and player.free_points > 0 else None
 
     # Create the embed with the updated user data
     embed = nextcord.Embed(title=user_title, color=embed_color)
@@ -270,8 +346,12 @@ class Profile(commands.Cog):
         text=f"{bot.user.name} - Help us improve! Use ::suggest <suggestion>",
         icon_url=bot.user.avatar.url)
 
-    # Send the embed
-    await ctx.send(embed=embed, view=view)
+    # Send the embed and store the view and message in the dictionary
+    message = await ctx.send(embed=embed, view=view)
+    if view:
+      view.message = message  # Store the message in the view
+      self.last_profile_views[ctx.author.id] = view
+
     get_achievement_cog = GetAchievement(self.bot)
     await get_achievement_cog.get_achievement(ctx, ctx.author.id, 4)
 

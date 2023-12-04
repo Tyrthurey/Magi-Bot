@@ -26,7 +26,7 @@ class Heal(commands.Cog):
     self.bot = bot
 
   @commands.command(name="heal", help="Heals you using a Healing Potion.")
-  async def heal(self, ctx):
+  async def heal(self, ctx, quantity: str = "1"):
     user_data_response = await asyncio.get_event_loop().run_in_executor(
         None, lambda: supabase.table('Users').select('*').eq(
             'discord_id', ctx.author.id).execute())
@@ -41,12 +41,49 @@ class Heal(commands.Cog):
           "You're already in a command. Finish it before starting another.")
       return
     # Call the `healing` function
-    heal_message = await self.healing(ctx)
+    if quantity.isdigit():
+      heal_message = await self.healing(ctx, int(quantity))
+    # elif quantity.lower() == "all":
+    #     heal_message = await self.heal_to_full(ctx)
+    else:
+      heal_message = "Invalid command usage. Type `::heal <number>` or `::heal all`."
+
     await ctx.send(heal_message)
 
-  async def healing(self, ctx):
+  # async def heal_to_full(self, ctx):
+  #   # Get the user's health and max_health
+  #   player_response = await asyncio.get_event_loop().run_in_executor(
+  #       None,
+  #       lambda: supabase.table('Users').select('health', 'max_health').eq(
+  #           'discord_id', ctx.author.id).execute())
+
+  #   if player_response.data:
+  #     player_data = player_response.data[0]
+  #     current_health = player_data['health']
+  #     max_health = player_data['max_health']
+  #     player = Player(ctx.author)
+
+  #     if current_health < max_health:
+  #       # Check if the user has a health potion in inventory using check_inventory
+  #       potion_quantity_lesser = await check_inventory(ctx.author.id, 1,
+  #                                                      'item')
+  #       potion_quantity_minor = await check_inventory(ctx.author.id, 2, 'item')
+
+  #       potion_quantity_major = await check_inventory(ctx.author.id, 17,
+  #                                                     'item')
+
+  #       # Find the lowest quality potion available
+  #       if potion_quantity_lesser > 0:
+  #           # Use lesser potions to heal to full
+  #       elif potion_quantity_minor > 0:
+  #           # Use minor potions to heal to full
+  #       elif potion_quantity_major > 0:
+  #           # Use major potions to heal to full
+  #       else:
+  #           return "No health potions available."
+
+  async def healing(self, ctx, quantity):
     command_prefix_str = await command_prefix(self.bot, ctx.message)
-    ITEM_ID = 1  # Assuming ITEM_ID 1 is always the health potion
 
     # Get the user's health and max_health
     player_response = await asyncio.get_event_loop().run_in_executor(
@@ -62,31 +99,54 @@ class Heal(commands.Cog):
 
       if current_health < max_health:
         # Check if the user has a health potion in inventory using check_inventory
-        potion_quantity_lesser = await check_inventory(ctx.author.id, ITEM_ID,
+        potion_quantity_lesser = await check_inventory(ctx.author.id, 1,
                                                        'item')
         potion_quantity_minor = await check_inventory(ctx.author.id, 2, 'item')
-        if potion_quantity_lesser > 0:
-          # Decrease the potion count by one using item_write
-          await item_write(ctx.author.id, ITEM_ID, -1)
 
-          heal_amount = random.randint(15, 25)
+        potion_quantity_major = await check_inventory(ctx.author.id, 17,
+                                                      'item')
+
+        if potion_quantity_lesser >= quantity:
+          # Decrease the potion count by one using item_write
+          await item_write(ctx.author.id, 1, -quantity)
+
+          heal_amount = 0
+          for _ in range(quantity):
+            heal_amount += random.randint(15, 25)
+
           player.health += heal_amount
           if player.health >= player.max_health:
             player.health = player.max_health
           player.update_health()
 
-          return f"**{ctx.author}** has used a <:healthpotion:1175114505013968948> **(Lesser) Health Potion** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
-        elif potion_quantity_minor > 0:
+          return f"**{ctx.author}** has used `{quantity}` <:healthpotion:1175114505013968948> **(Lesser) Health Potion(s)** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
+        elif potion_quantity_minor >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(ctx.author.id, 2, -1)
+          await item_write(ctx.author.id, 2, -quantity)
 
-          heal_amount = random.randint(30, 50)
+          heal_amount = 0
+          for _ in range(quantity):
+            heal_amount += random.randint(30, 50)
           player.health += heal_amount
           if player.health >= player.max_health:
             player.health = player.max_health
           player.update_health()
 
-          return f"**{ctx.author}** has used a <:healthpotion:1175114505013968948> **(Minor) Health Potion** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
+          return f"**{ctx.author}** has used `{quantity}` <:healthpotion:1175114505013968948> **(Minor) Health Potion(s)** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
+
+        elif potion_quantity_major >= quantity:
+          # Decrease the potion count by one using item_write
+          await item_write(ctx.author.id, 17, -quantity)
+
+          heal_amount = 0
+          for _ in range(quantity):
+            heal_amount += random.randint(100, 300)
+          player.health += heal_amount
+          if player.health >= player.max_health:
+            player.health = player.max_health
+          player.update_health()
+
+          return f"**{ctx.author}** has used `{quantity}` <:healthpotion:1175114505013968948> **(Major) Health Potion(s)** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
         else:
           return f"**{ctx.author}**, you don't have any health potions. \nUse `{command_prefix_str}buy health potion` to get one!"
       else:

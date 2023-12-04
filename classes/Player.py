@@ -149,7 +149,6 @@ class Player(Combat_Entity):
         'level': self.level,
         'adventure_exp': self.adventure_exp,
         'bal': self.bal,
-        'using_command': self.using_command,
         'dung_tutorial': self.dung_tutorial,
         'adv_tutorial': self.adv_tuturial
     }).eq('discord_id', self.discord_user.id).execute()
@@ -234,7 +233,7 @@ class Player(Combat_Entity):
   def __str__(self):
     # String representation of the player's stats
     return (f"**HP:** {self.health}/{self.max_health}\n"
-            f"**Energy:** 0/0\n"
-            f"**STR:** {self.strength} | | **VIT:** {self.vitality}\n"
-            f"**DEX:** {self.dexterity} | | **CUN:** {self.cunning}\n"
-            f"**MAG:** {self.magic}\n")
+            f"**Energy:** 0/0\n")
+    # f"**STR:** {self.strength} | | **VIT:** {self.vitality}\n"
+    # f"**DEX:** {self.dexterity} | | **SAV:** {self.cunning}\n"
+    # f"**MAG:** {self.magic}\n")

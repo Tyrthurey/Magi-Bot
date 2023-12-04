@@ -12,7 +12,6 @@ from supabase import Client, create_client
 
 from classes.CombatView import CombatView
 from functions.item_write import item_write
-from functions.check_inventory import check_inventory
 
 logging.basicConfig(level=logging.INFO)
 
@@ -23,11 +22,11 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
-class AdvCombatView(CombatView):
+class SlashAdvCombatView(CombatView):
 
-  def __init__(self, ctx, player, enemy):
-    super().__init__(ctx, player, enemy)
-    self.ctx = ctx
+  def __init__(self, interaction: nextcord.Interaction, player, enemy):
+    super().__init__(interaction, player, enemy)
+    self.interaction = interaction
     self.player = player
     self.enemy = enemy
     self.combat_log = []
@@ -38,29 +37,17 @@ class AdvCombatView(CombatView):
                                                      player.cunning +
                                                      player.magic)
 
-  # def update_button_states(self, player_turn: bool):
-  #   #Enable buttons if it's the player's turn, disable otherwise.
-  #   for item in self.children:
-  #     if isinstance(item, nextcord.ui.Button):
-  #       item.disabled = not player_turn
+  async def interaction_check(self, interaction: nextcord.Interaction) -> bool:
+    # Only the user who started the adventure can interact with the buttons
+    return interaction.user == self.interaction.user
 
-  async def interaction_check(self, interaction):
-    # Only the user who started the hunt can interact with the buttons
-    return interaction.user == self.ctx.author
-
-  # async def on_timeout(self):
-  #   # Handle what happens when the view times out
-  #   await self.ctx.send(f"Combat with {self.enemy.name} has timed out.")
-
-  def is_on_cooldown(self, user):
+  def is_on_cooldown(self, user: nextcord.User) -> bool:
     return user.id in self.cooldowns and time.time() < self.cooldowns[user.id]
 
-  # Starts a cooldown for a user
-  def start_cooldown(self, user, duration=2):
+  def start_cooldown(self, user: nextcord.User, duration: int = 2):
     self.cooldowns[user.id] = time.time() + duration
 
   async def update_embed(self, interaction):
-    avatar_url = self.ctx.author.avatar.url if self.ctx.author.avatar else self.ctx.author.default_avatar.url
     embed = nextcord.Embed(title=f"{self.player.name}'s adventure")
     embed.set_thumbnail(url='')
     embed.add_field(
@@ -83,7 +70,7 @@ class AdvCombatView(CombatView):
 
     embed.add_field(name="", value="🔨 --> Use Item \n💨 --> Flee", inline=True)
 
-    await interaction.message.edit(embed=embed, view=self)
+    await self.interaction.edit_original_message(embed=embed, view=self)
 
   # In the CombatView class.
   @nextcord.ui.button(label="⚔️", style=nextcord.ButtonStyle.green)
@@ -116,32 +103,11 @@ class AdvCombatView(CombatView):
                       disabled=True)
   async def use_item(self, button: Button, interaction: nextcord.Interaction):
     # Item usage logic
-
-    ITEM_ID = 1
-
-    # Check if the user has a health potion in inventory
-    inventory_response = await check_inventory(self.player.user_id, ITEM_ID,
-                                               'item')
-
-    if ITEM_ID == 1:
-      if inventory_response > 0:
-        # Decrease the pill count by one
-        await item_write(self.player.user_id, ITEM_ID, -1)
-        heal_amount = random.randint(15, 25)
-        self.player.health += heal_amount
-        if self.player.health >= self.player.max_health:
-          self.player.health = self.player.max_health
-        self.combat_log.append(
-            f"**{self.player.name}** uses a <:healthpotion:1175114505013968948> **Health Potion (Lesser)**: +`{heal_amount}` HP!"
-        )
-      else:
-        self.combat_log.append(
-            f"**{self.player.name}** desn't have any Lesser Health Potions. Sadge."
-        )
+    # Would need to show item selection and then update the combat state
+    # self.player.use_item('Health Potion')  # Example item
+    self.combat_log.append(f"**{self.player.name}** uses a Health Potion!")
     await self.update_embed(interaction)
     # Check for end of combat
-    await self.handle_combat_turn(interaction, "item")
-    self.start_cooldown(interaction.user)
 
   @nextcord.ui.button(label="💨", style=nextcord.ButtonStyle.red)
   async def flee(self, button: Button, interaction: nextcord.Interaction):
@@ -174,9 +140,9 @@ class AdvCombatView(CombatView):
 
     # Update the embed to show the player's action
     await self.update_embed(interaction)
-    await self.ctx.send(
-        f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.\n"
-        f"{lostrewardsmsg}")
+    await self.interaction.followup.send(
+        f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.\n{lostrewardsmsg}"
+    )
 
     self.player.set_using_command(False)  # Reset the using_command field
     self.player.save_data()
@@ -325,9 +291,9 @@ class AdvCombatView(CombatView):
       self.player.adventure_exp -= needed_exp_for_next_level  # Reset exp to 0 for next level, carry over exp
       self.player.free_points = self.player.free_points + 5
 
-    await self.ctx.send(
-        f'{message1}'
-        f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
+    await self.interaction.followup.send(
+        f"{message1}"
+        f"Gained `{additional_exp}` EXP, and `{gold_reward}` gold!\n"
         f"Current Health: `{self.player.health}/{self.player.max_health}`HP. \n"
         f"{f':arrow_up: Level Up to lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
         f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}"

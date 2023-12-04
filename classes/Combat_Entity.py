@@ -15,6 +15,7 @@ url = os.getenv("SUPABASE_URL") or ""
 key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
+
 class Combat_Entity:
 
   def __init__(self, name, health, max_health, atk, defense, magic, magic_def):
@@ -37,16 +38,15 @@ class Combat_Entity:
 
   def atk_value(self):
     return self.atk
-  
+
   def def_value(self):
     return self.defense
-  
+
   def magic_value(self):
     return self.magic
-  
+
   def magic_def_value(self):
     return self.magic_def
-
 
   def health_status(self):
     health_percentage = (self.health / self.max_health) * 100
@@ -62,11 +62,10 @@ class Combat_Entity:
       return "Fatally Injured"
     else:
       return "Dead"
- 
-  
+
   def determine_threat_level(self, opponent_stats_total):
     stat_ratio = opponent_stats_total / (self.atk + self.defense + self.magic +
-                                       self.magic_def)
+                                         self.magic_def)
     if stat_ratio >= 5:
       return "Laughably Easy"
     elif stat_ratio >= 3:
@@ -81,4 +80,3 @@ class Combat_Entity:
       return "Hell"
     else:
       return "Impossible"
-

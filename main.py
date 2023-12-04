@@ -291,48 +291,10 @@ async def start(ctx):
     await bot.loop.run_in_executor(None, insert_new_user)
     # Send a message with the tutorial
     tutorial_embeds = [
+        nextcord.Embed(title="Welcome, and congratulations!",
+                       description="Apocalypse System Initialized!"),
         nextcord.Embed(
-            title="Welcome, and congratulations! (1/9)",
-            description=
-            "Apocalypse System Initialized!\n\nIn the greater universe, there exist two primary categories of world. The first and most numerous are systemless worlds, which exist in closed-off bubbles of reality. \n\nThey function in accordance to their own localized physics or magical systems, and their sentient and non-sentient beings survive without any of the system’s balancing effects."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (2/9)",
-            description=
-            "Other, luckier worlds exist. This second category of world has been fully initiated. They live and die by the system rules. \n\nThe system grants beings within its influence strength, yet carefully balances that strength to ensure an even playing field in which various sentient races survive and thrive on their individual merits."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (3/9)",
-            description=
-            "A typical system integration takes place over dozens of generations as the system carefully introduces tweaks, changes, and adjustments meant to nudge a world towards a state in which it can seamlessly function with the greater universe as a whole, like a cog in a well-designed built clock. \n\nBut, as stated, this process takes time. Over every period of time of a certain length, a few lucky planets are selected for integration."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (4/9)",
-            description=
-            "A third category of world, one which does not fit neatly into either category, also exists. Some worlds, by nature of developing further and faster than the system anticipated, delve deeply into forces they cannot fully control. \n\nIn doing so, they breach the containment of their bubble-realities, and trigger the system’s influence to leak in a less gentle and controlled manner."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (5/9)",
-            description=
-            "Due to the fact that this invariably dooms a world in the process, the denizens of the system universe refer to these scenarios as “an apocalypse”. The planet you have known as Earth is doomed. Nothing can stop its destruction. \n\nThe process of its downfall will take time, but whether that time is measured in years, decades, or centuries, the outcome will be the same. Earth will be destroyed, along with everything on it."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (6/9)",
-            description=
-            "It is not, however, the system’s will or intent that this should happen or that your people should vanish. \n\nAs such, certain allowances are made to assure that what made your pocket of reality unique and worthwhile survives."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (7/9)",
-            description=
-            "As a resident of Earth, you have been granted access to The Apocalypse System. This system allows you to augment your body and mind such that your chances of survival increase in the midst of the chaos that is to come. \n\nBut with mayhem is opportunity, and you will find that escape and more waits for those who show themselves worthy of grasping for it."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (8/9)",
-            description=
-            "No official guide for the Apocalypse System exists, nor do you need one. \n\nIt is best learned by trial and error, through experimentation that eventually becomes knowledge and direction."
-        ),
-        nextcord.Embed(
-            title="Welcome, and congratulations! (9/9)",
+            title="Welcome, and congratulations!",
             description=
             "It is the system’s desire and hope that you will rise above the storm, find strength, and survive. \n\nGood luck!"
         ),
@@ -574,6 +536,11 @@ try:
   bot.load_extension("commands.changelog")
   bot.load_extension("commands.achievements")
   bot.load_extension("commands.area")
+  bot.load_extension("commands.(slash) adventure")
+  bot.load_extension("commands.(slash) heal")
+  bot.load_extension("commands.(slash) suggest")
+
+  bot.load_extension("commands.img_profile")
 
   keep_alive()
 

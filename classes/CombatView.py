@@ -35,11 +35,22 @@ class CombatView(View):
     self.enemy = enemy
     self.combat_log = []
     self.cooldowns = {}
+    self.is_players_turn = True
     self.threat_level = enemy.determine_threat_level(player.strength +
                                                      player.dexterity +
                                                      player.vitality +
                                                      player.cunning +
                                                      player.magic)
+
+  def update_button_states(self):
+    """Enable or disable buttons based on the player's turn."""
+    for item in self.children:
+      if isinstance(item, nextcord.ui.Button):
+        item.disabled = not self.is_players_turn
+
+  async def change_turn(self):
+    self.is_players_turn = not self.is_players_turn
+    self.update_button_states()
 
   # ------------------------------------------------------------------------------------
   # Timeout function
@@ -51,7 +62,7 @@ class CombatView(View):
     # Update the embed to show the player's action
 
     await self.ctx.send(
-        f"**{self.player.name}** fell asleep while fighting {self.enemy.name} and died! Noob.\nYour problems don't go away if you ignore them lol."
+        f"**{self.player.name}** fell asleep while fighting {self.enemy.name} and died! \nYour problems don't go away if you ignore them."
     )
 
     # Reset the using_command field
@@ -62,10 +73,9 @@ class CombatView(View):
     # Consequences
     # ---------------------------------------------------------------------------------
 
-    self.player.health = 0
+    self.player.health = self.player.max_health
     self.player.adventure_exp = 0
-    self.player.level = max(1, self.player.level - 1)
-    self.player.bal = max(0,
+    self.player.bal = max(10,
                           self.player.bal - math.floor(self.player.bal * 0.1))
     self.player.save_data()
 
@@ -119,6 +129,7 @@ class CombatView(View):
 
     if action == "spell":
       self.player.is_defending = False
+      await self.change_turn()
       player_damage = self.player.cast_spell(self.enemy)
 
       # Update combat log
@@ -132,6 +143,7 @@ class CombatView(View):
 
     elif action == "melee":
       self.player.is_defending = False
+      await self.change_turn()
       player_damage = self.player.melee_attack(self.enemy)
 
       # Update combat log
@@ -145,6 +157,7 @@ class CombatView(View):
 
     elif action == "defend":
       self.player.defend()
+      await self.change_turn()
 
       # Update combat log
       self.combat_log.append(f"**{self.player.name}** defends!")
@@ -155,6 +168,7 @@ class CombatView(View):
 
     elif action == "item":
       self.player.is_defending = False
+      await self.change_turn()
       # Implement item usage logic here
       pass
 
@@ -164,6 +178,7 @@ class CombatView(View):
 
     elif action == "flee":
       self.player.is_defending = False
+      await self.change_turn()
       if self.player.flee():
         await self.handle_flee(interaction)
         return
@@ -173,6 +188,27 @@ class CombatView(View):
     # ----------------------------------------------------------------------------------
     # Update the embed to show the player's action
     # ----------------------------------------------------------------------------------
+    health_percentage = (self.enemy.health / self.enemy.max_health) * 100
+    # Update the health_status_text based on health_percentage
+    previous_health_status = self.enemy.health_status_text
+    if health_percentage > 80:
+      self.enemy.health_status_text = 'Healthy'
+    elif health_percentage > 60:
+      self.enemy.health_status_text = "Scraped a knee"
+    elif health_percentage > 40:
+      self.enemy.health_status_text = "Minorly Injured"
+    elif health_percentage > 20:
+      self.enemy.health_status_text = "Injured"
+    elif health_percentage > 0:
+      self.enemy.health_status_text = "Fatally Injured"
+    else:
+      self.enemy.health_status_text = "Dead"
+
+    # Only send a message if the health status has changed
+    if self.enemy.health_status_text != previous_health_status:
+      self.combat_log.append(
+          f"{self.enemy.name} is now {self.enemy.health_status_text}!")
+      self.enemy.previous_health_status_text = self.enemy.health_status_text
 
     await self.update_embed(interaction)
 
@@ -227,9 +263,11 @@ class CombatView(View):
         )
 
       await self.update_embed(interaction)
+      await self.change_turn()
 
     if self.player.health <= 0:
       is_dead = True
+      await self.change_turn()
       await self.handle_death(interaction)
     else:
       # ----------------------------------------------------------------------------------
@@ -243,6 +281,7 @@ class CombatView(View):
     # ----------------------------------------------------------------------------------
 
     if self.player.health <= 0 and is_dead == False:
+      await self.change_turn()
       await self.handle_death(interaction)
     else:
       await self.update_embed(interaction)

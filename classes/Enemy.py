@@ -43,12 +43,15 @@ class Enemy(Combat_Entity):
     self.magic = data.get('magic', 5)
     self.magic_def = data.get('magic_def', 5)
     self.drop_chance = data.get('drop_chance', 0)
+    self.exp_drop = data.get('exp_drop', 40)
     self.drop_item_id = data.get('drop_item_id', 0)
     self.weakness = data.get('weakness', 'none')
     self.is_preparing = False
     self.is_stunned = False
     self.is_downed = False
     self.is_bound = False
+    self.health_status_text = 'Healthy'
+    self.previous_health_status_text = ''
 
     self.special_multiplier = 1
     self.special_name = 'None'

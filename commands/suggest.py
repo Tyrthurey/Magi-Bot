@@ -39,7 +39,7 @@ async def confirm_suggestion(ctx, suggestion):
   avatar_url = ctx.author.avatar.url if ctx.author.avatar else ctx.author.default_avatar.url
   embed_color = await get_embed_color(
       None if ctx.guild is None else ctx.guild.id)
-  embed = nextcord.Embed(title="Suggestion Confirmation",
+  embed = nextcord.Embed(title=":notepad_spiral: Suggestion Confirmation",
                          description=f"**Your Suggestion:**\n{suggestion}",
                          color=embed_color)
   embed.set_author(name=ctx.author.display_name, icon_url=avatar_url)
@@ -61,7 +61,7 @@ async def confirm_suggestion(ctx, suggestion):
           "You are not allowed to do this.", ephemeral=True)
       return
     await interaction.response.send_message("Suggestion cancelled.",
-                                            ephemeral=True)
+                                            ephemeral=False)
     view.stop()
 
   yes_button = Button(style=nextcord.ButtonStyle.green, label="Yes")
