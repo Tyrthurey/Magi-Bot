@@ -32,6 +32,8 @@ sys.path.append(str(commands_dir))
 from functions.check_inventory import check_inventory
 from functions.item_write import item_write
 from functions.load_settings import load_settings, command_prefix, get_prefix, get_embed_color
+import functions.settings_manager
+from functions.settings_manager import update_settings_cache_here, get_settings_cache
 from functions.cooldown_manager import cooldown_manager_instance
 from functions.get_achievement import GetAchievement
 
@@ -111,6 +113,7 @@ bot_settings = {}
 async def on_ready():
   global bot_settings
   global level_progression_data
+  global settings_cache
 
   try:
     supabase.table('Users').update({
@@ -121,11 +124,16 @@ async def on_ready():
 
   print(f'Logged in as {bot.user.name}')
   # Loop through all the guilds the bot is a member of
+
+  # On bot start, populate the cache with settings from all servers
+
   for guild in bot.guilds:
     if guild is not None:
       server_name = guild.name
       member_amount = guild.member_count
       server_id = guild.id
+      settings = await load_settings(server_id)
+      await update_settings_cache(server_id, settings)
       # Check if there is an entry for the guild in the database
       existing = supabase.table('ServerSettings').select('settings').eq(
           'server_id', guild.id).execute()
@@ -145,90 +153,51 @@ async def on_ready():
             'server_name': server_name,
             'member_amount': member_amount
         }).eq('server_id', server_id).execute()
-      bot_settings[server_id] = await load_settings(server_id)
+
+      settings = await load_settings(server_id)
+      bot_settings[server_id] = settings
+      #settings_cache[server_id] = settings
+      print("--------------------------------------------")
+      print(f"\nLoaded settings for guild ID {server_id}")
+      print(f"Settings: {settings}" + "\n")
+      print("--------------------------------------------")
+      await update_settings_cache(server_id, settings)
+
     else:
       server_name = "DMs"
   print("All guild settings are checked and updated/inserted if necessary.")
 
   print(f'Logged in as {bot.user.name}')
   # Set the playing status
-  game = nextcord.Game("::hunt | ::help | ::shop")
+  game = nextcord.Game("::start | ::help | ::shop")
   await bot.change_presence(activity=game)
 
 
 @bot.event
 async def on_message(message):
+  print("------------------------------------------------")
   # Avoid responding to the bot's own messages
   if message.author == bot.user:
     return
 
-  # Get the server settings
+  # Use cached settings
   server_id = message.guild.id if message.guild else None
   if server_id:
-    settings = await load_settings(server_id)
-    operation_channel_id = settings.get('channel_id')
+    settings = get_settings_cache(server_id)
+    if settings:
+      operation_channel_id = settings.get('channel_id')
 
-    # Check if the message is in the designated channel
-    if operation_channel_id and message.channel.id != operation_channel_id:
-      return
-
-  # Get user information
-  user_id = message.author.id
-  username = str(message.author)
-
-  # Check if the user is already in the database
-  def check_user():
-    return supabase.table('Players').select('*').eq('discord_id',
-                                                    user_id).execute()
-
-  def update_user_exp_and_command_time(new_total_exp):
-    return supabase.table('Players').update({
-        'total_server_exp':
-        new_total_exp,
-        'last_message_time':
-        datetime.utcnow().isoformat()
-    }).eq('discord_id', user_id).execute()
-
-  def insert_new_user():
-    initial_data = {
-        'discord_id': user_id,
-        'username': username,
-        'health': 10,
-        'max_health': 10,
-        'level': 1,
-        'server_exp': 0,
-        'total_server_exp': 0,
-        'adventure_rank': 0,
-        'adventure_exp': 0,
-        'adventure_total_exp': 0,
-        'atk': 1,
-        'def': 1,
-        'magic': 1,
-        'magic_def': 1,
-        'bal': 100,
-        'floor': 1,
-        'max_floor': 1,
-        'free_points': 0,
-        'last_message_time':
-        datetime.utcnow().isoformat()  # Initialize with the current time
-    }
-    return supabase.table('Players').insert(initial_data).execute()
-
-  response = await bot.loop.run_in_executor(None, check_user)
-
-  if response.data:
-    # The user exists, so increment their total_exp by 1
-    user_data = response.data[0]
-    new_total_exp = user_data['total_server_exp'] + 1
-    # Update the user's total_exp and last_command_time in the database
-    await bot.loop.run_in_executor(None, update_user_exp_and_command_time,
-                                   new_total_exp)
-  else:
-    # The user doesn't exist, so add them to the database with initial values
-    await bot.loop.run_in_executor(None, insert_new_user)
+      # Check if the message is in the designated channel
+      if operation_channel_id and message.channel.id != operation_channel_id:
+        return
 
   # Process commands (if any)
   await bot.process_commands(message)
+
+
+# Remember to add a function to update the cache when settings change
+async def update_settings_cache(server_id, new_settings):
+  update_settings_cache_here(server_id, new_settings)
 
 
 @bot.command(
@@ -245,6 +214,10 @@ async def start(ctx):
         'discord_id', user_id).execute()
 
   def insert_new_user():
+    print("---------------------------------------")
+    print("A NEW HAND HAS TOUTCHED THE BEACON")
+    print(f"ALL HAIL THE NEWBIE: {username}")
+    print("---------------------------------------")
     # Set the initial values for the new user
     initial_data = {
         'discord_id': user_id,
@@ -344,6 +317,7 @@ class CustomIdModal(nextcord.ui.Modal):
 
     logging.info(f"New settings for guild {self.guild_id}: {settings}")
     await save_settings(self.guild_id, settings)
+    await update_settings_cache(self.guild_id, settings)
     logging.info("Save settings called.")
 
     await interaction.response.send_message(
@@ -436,16 +410,20 @@ async def settings_command_error(ctx, error):
 @has_permissions(administrator=True)
 async def setchannel(ctx, channel: nextcord.TextChannel = None):
   server_id = ctx.guild.id
+  new_settings = await load_settings(server_id)
 
   if channel is None:
     # Clear the operation channel setting
     await save_settings(server_id, {'channel_id': None})
+    new_settings['channel_id'] = None
     await ctx.send(
         "Bot operation channel has been cleared. The bot will now operate in all channels."
     )
   else:
     # Set the new operation channel
+    new_settings['channel_id'] = channel.id
     await save_settings(server_id, {'channel_id': channel.id})
+    await update_settings_cache(server_id, new_settings)
     await ctx.send(f"Bot operation channel set to {channel.mention}")
 
 
@@ -456,43 +434,6 @@ async def setchannel_error(ctx, error):
     await ctx.send("You need administrator permissions to change the settings."
                    )
 
-
-#   # Create the embed
-#   embed = nextcord.Embed(
-#       title="Dungeon Floor 1",
-#       description=
-#       f"You encountered a {enemy_name}!\nThreat Level: {threat_level}",
-#       color=0x1abc9c)
-#   embed.set_thumbnail(url=ctx.author.avatar.url)
-#   embed.add_field(
-#       name=f"{enemy_name}'s Stats",
-#       value=
-#       f"{enemy_stats['hp']}/{enemy_stats['max_hp']}❤️, {enemy_stats['mp']}/{enemy_stats['max_mp']}💧",
-#       inline=False)
-#   embed.add_field(
-#       name="Your Stats",
-#       value=
-#       f"{player_stats['hp']}/{player_stats['max_hp']}❤️, {player_stats['mp']}/{player_stats['max_mp']}💧",
-#       inline=False)
-#   # Add combat stats (icons can be custom emojis or standard emoji characters)
-#   embed.add_field(name="⚔️ 46 | 🛡️ 26 | 🌟 18% | 🎯 112%",
-#                   value="Player combat stats here",
-#                   inline=False)
-#   embed.add_field(name="💫 53 | 🌀 26 | ✨ 11% | 🎲 +18",
-#                   value="Additional stats or effects",
-#                   inline=False)
-
-#   # # Add a separator line
-#   # embed.add_field(name="\u200b",
-#   #                 value="------------------------------------",
-#   #                 inline=False)
-
-#   # # Add combat log
-#   # for log in combat_log:
-#   #   embed.add_field(name="\u200b", value=log, inline=False)
-
-#   # Send the embed
-#   await ctx.send(embed=embed)
 
 # -----------------------------------------------------------------------------
 # No touch beyond this point
@@ -541,6 +482,8 @@ try:
   bot.load_extension("commands.(slash) suggest")
 
   bot.load_extension("commands.img_profile")
+  bot.load_extension("commands.profile_settings")
+  bot.load_extension("commands.NEWprofile_settings")
 
   keep_alive()
 

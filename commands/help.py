@@ -21,36 +21,37 @@ async def helping(ctx):
   embed_color = await get_embed_color(
       None if ctx.guild is None else ctx.guild.id)
 
-  embed = nextcord.Embed(title='Help Menu', color=embed_color)
-  embed.add_field(
-      name="",
-      value=
-      f"Welcome to the help menu!\nTo start your adventure, use `{command_prefix_str}start`!",
-      inline=False)
-  embed.add_field(
-      name="",
-      value=
-      f"You can earn titles and achievements!\n Simply complete various tasks and milestones!",
-      inline=False)
-  embed.add_field(
-      name="",
-      value=
-      f"You can use `{command_prefix_str}area` to move around! \nAnd `{command_prefix_str}profile` to see your stats!",
-      inline=False)
-  embed.add_field(name="",
-                  value=f"Soon, you will even have access to a tutorial!",
-                  inline=False)
-  embed.add_field(name="",
-                  value=f"Usage: `{command_prefix_str}help <command>`",
-                  inline=False)
+  embed = nextcord.Embed(
+      title="Help Menu",
+      description=
+      f"Welcome to the help menu! To start your adventure, use `{command_prefix_str}start`!\n\nYou can earn titles and achievements! Simply complete various tasks and milestones!\n\nYou can use `{command_prefix_str}area` to move around and go on an adventure with `{command_prefix_str}adventure`!\n\nType `{command_prefix_str}profile` to see your stats!\nIf you feel extra fancy, you can use `{command_prefix_str}img_profile` or `{command_prefix_str}ip`!~\n\nA lot of the commands have aliases,\nso make sure to look them up using `{command_prefix_str}help <command name>`!\n\nYou can use `{command_prefix_str}area` to move around.\nSoon, you will even have access to a tutorial! :P\n\n------------------------------------\nUsage: `{command_prefix_str}help <command>`\n------------------------------------\nBot creator: <@243351582052188170>\n------------------------------------",
+      colour=embed_color)
 
-  embed.set_footer(text=ctx.bot.user.name, icon_url=ctx.bot.user.avatar.url)
-  for command in ctx.bot.commands:
-    if command.hidden:
-      continue
-    command_name = f"{command_prefix_str}{command.name}"
+  embed.set_author(name=ctx.bot.user.name,
+                   url="https://magi-bot.tyrthurey.repl.co/",
+                   icon_url=ctx.bot.user.avatar.url)
 
-    embed.add_field(name=command_name, value="", inline=True)
+  embed.add_field(
+      name="RPG Commands",
+      value=
+      f"`{command_prefix_str}start`\n`{command_prefix_str}profile`\n`{command_prefix_str}img_profile`\n`{command_prefix_str}profile_settings`\n`{command_prefix_str}adventure`\n`{command_prefix_str}area`\n`{command_prefix_str}titles`\n`{command_prefix_str}achievements`\n`{command_prefix_str}cooldowns`\n`{command_prefix_str}inventory`\n`{command_prefix_str}shop`\n`{command_prefix_str}buy`\n`{command_prefix_str}sell`\n`{command_prefix_str}use`\n`{command_prefix_str}heal`",
+      inline=True)
+  embed.add_field(
+      name="General Commands",
+      value=
+      f"`{command_prefix_str}changelog`\n---\n`{command_prefix_str}suggest`\n`{command_prefix_str}bug`\n`{command_prefix_str}website`\n`{command_prefix_str}leaderboard`\n`{command_prefix_str}hi`\n`{command_prefix_str}cat`\n`{command_prefix_str}dog`\n`{command_prefix_str}gif`\n`{command_prefix_str}help`\n`{command_prefix_str}get_title`\n`{command_prefix_str}admin`",
+      inline=True)
+  embed.add_field(
+      name="Server Admin Stuff",
+      value=f"`{command_prefix_str}settings`\n`{command_prefix_str}setchannel`",
+      inline=True)
+
+  #embed.set_thumbnail(url=ctx.bot.user.avatar.url)
+
+  embed.set_footer(
+      text=
+      f"Help us improve! Use `{command_prefix_str}suggest <suggestion>` and `{command_prefix_str}bug <bug-report>`!",
+      icon_url=ctx.bot.user.avatar.url)
 
   await ctx.send(embed=embed)
 

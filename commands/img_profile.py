@@ -7,10 +7,11 @@ from main import bot, supabase  # Import necessary objects from your project
 from functions.load_settings import get_embed_color
 from classes.Player import Player
 from functions.get_achievement import GetAchievement
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 import os
 from io import BytesIO
 import requests
+import json
 
 
 def draw_centered_text(draw, text, position, font, fill_color):
@@ -25,12 +26,82 @@ def draw_centered_text(draw, text, position, font, fill_color):
   draw.text((x, y), text, font=font, fill=fill_color)
 
 
-async def create_profile_image(ctx, profile_data):
+async def create_profile_image(ctx, profile_data, avatar_url, user_id):
+  fill_color = 'black'
   # Load the profile image template
   template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               'resources', 'profile_template.png')
+                               'resources', 'profile_bgs',
+                               'profile_template.png')
   image = Image.open(template_path)
   draw = ImageDraw.Draw(image)
+
+  # Fetch the custom profile picture settings from the database
+  settings_response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Inventory').select('settings').eq(
+          'discord_id', user_id).execute())
+
+  if settings_response.data:
+    settings = settings_response.data[0]['settings']
+    # Check if settings is a string and parse it if necessary
+    if isinstance(settings, str):
+      settings = json.loads(settings)
+
+    profile_pic_name = settings.get('profile_pic_name', 'default.png')
+    profile_pic_gender = settings.get('profile_pic_gender', 'male')
+  else:
+    # Default settings if not found in the database
+    profile_pic_name = 'default.png'
+    profile_pic_gender = 'male'
+
+  if profile_pic_name == 'discord' and profile_pic_gender == 'discord':
+    # Code to load and process the Discord user's avatar
+    center_x, center_y = (352, 331)  # Center X, Y coordinates on the template
+    avatar_size = (315, 315)  # Width, Height
+    avatar_position = (center_x - avatar_size[0] // 2,
+                       center_y - avatar_size[1] // 2)
+
+    response = requests.get(avatar_url)
+    avatar = Image.open(BytesIO(response.content))
+    avatar = avatar.convert("RGBA")
+    avatar = avatar.resize(avatar_size, Image.Resampling.LANCZOS)
+
+    mask = Image.new('L', avatar_size, 0)
+    draw_mask = ImageDraw.Draw(mask)
+    draw_mask.ellipse((0, 0) + avatar_size, fill=255)
+
+    circular_avatar = ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5))
+    circular_avatar.putalpha(mask)
+    image.paste(circular_avatar, avatar_position, circular_avatar)
+
+    # Load the default ring image
+    ring_image_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   'resources', 'default_ring.png')
+    ring_image = Image.open(ring_image_path)
+
+    # Paste the circular avatar onto the template
+    image.paste(circular_avatar, avatar_position, circular_avatar)
+
+    # Paste the ring image on top
+    image.paste(ring_image, (0, 0), ring_image)
+  else:
+    # Path to the selected profile image
+    profile_image_path = os.path.join('commands', 'resources',
+                                      f'{profile_pic_gender}_pfps',
+                                      profile_pic_name)
+    if os.path.exists(profile_image_path):
+      selected_image = Image.open(profile_image_path)
+      image.paste(selected_image, (0, 0), selected_image)
+
+    # Load the selected profile image
+    if os.path.exists(profile_image_path):
+      selected_image = Image.open(profile_image_path)
+      image.paste(selected_image, (0, 0),
+                  selected_image)  # Pasting at the top-left corner
+    else:
+      # Load a default image if the selected image does not exist
+      default_image_path = os.path.join('commands', 'resources', 'male',
+                                        'default.png')
+      selected_image = Image.open(default_image_path)
 
   # Define the font path relative to the resources folder
   font_filename = "enso.ttf"
@@ -48,7 +119,7 @@ async def create_profile_image(ctx, profile_data):
   # Draw text for each field in profile_data
   for field, center_position in center_positions.items():
     text = str(profile_data.get(field, ''))
-    draw_centered_text(draw, text, center_position, font, fill_color='black')
+    draw_centered_text(draw, text, center_position, font, fill_color)
 
   font_size = 30
   font = ImageFont.truetype(font_path, font_size)
@@ -63,12 +134,12 @@ async def create_profile_image(ctx, profile_data):
   # Draw text for each field in profile_data
   for field, center_position in center_positions.items():
     text = str(profile_data.get(field, ''))
-    draw_centered_text(draw, text, center_position, font, fill_color='black')
+    draw_centered_text(draw, text, center_position, font, fill_color)
 
   # Draw text for each field in profile_data
   for field, (x, y) in positions.items():
     value = str(profile_data.get(field, ''))
-    draw.text((x, y), value, font=font, fill='black')
+    draw.text((x, y), value, font=font, fill=fill_color)
 
   font_size = 20
   font = ImageFont.truetype(font_path, font_size)
@@ -79,36 +150,71 @@ async def create_profile_image(ctx, profile_data):
       'needed_adv_level_exp': (415, 577),
       'location': (120, 565),
       'class': (354, 547),
-      'vitality': (175, 189),
-      'dexterity': (140, 243),
-      'strength': (122, 301),
-      'cunning': (125, 357),
-      'magic': (145, 412),
-      'luck': (185, 468),
-      'atk': (565, 565),
-      'dash2': (592, 565),
-      'def': (625, 565)
-  }
-
-  positions = {
-      'gold': (595, 240),
-      'stat_score': (615, 469),
-      'free_points': (635, 189),
-      'health': (610, 300),
-      # 'max_health': (610, 307),
-      'energy': (612, 355),
-      # 'max_energy': (620, 365),
+      'vitality': (135, 188),
+      'dexterity': (135, 243),
+      'strength': (135, 300),
+      'cunning': (135, 355),
+      'magic': (135, 410),
+      'luck': (135, 466),
+      # 'dash2': (592, 565)
   }
 
   # Draw text for each field in profile_data
   for field, center_position in center_positions.items():
     text = str(profile_data.get(field, ''))
-    draw_centered_text(draw, text, center_position, font, fill_color='black')
+    draw_centered_text(draw, text, center_position, font, fill_color)
+
+  font_size = 18
+  font = ImageFont.truetype(font_path, font_size)
+
+  positions = {
+      'gold': (605, 265),
+      'stat_score': (615, 188),
+      'free_points': (635, 221),
+      'atk': (595, 308),
+      'def': (595, 343),
+      'health': (610, 532),
+      # 'max_health': (610, 307),
+      'energy': (612, 565)
+      # 'max_energy': (620, 365),
+  }
 
   # Draw text for each field in profile_data
   for field, (x, y) in positions.items():
     value = str(profile_data.get(field, ''))
-    draw.text((x, y), value, font=font, fill='black')
+    draw.text((x, y), value, font=font, fill=fill_color)
+
+  # # Desired center position for the avatar
+  # center_x, center_y = (354, 245)  # Center X, Y coordinates on the template
+
+  # # Specify the size for the profile picture
+  # avatar_size = (80, 80)  # Width, Height
+
+  # # Calculate top-left corner position for pasting
+  # avatar_position = (center_x - avatar_size[0] // 2,
+  #                    center_y - avatar_size[1] // 2)
+
+  # # Fetch and open the profile picture
+  # response = requests.get(avatar_url)
+  # avatar = Image.open(BytesIO(response.content))
+
+  # # Ensure the avatar is in RGBA mode
+  # avatar = avatar.convert("RGBA")
+
+  # # Resize the avatar to the desired size using LANCZOS
+  # avatar = avatar.resize(avatar_size, Image.Resampling.LANCZOS)
+
+  # # Create a mask for the circular crop
+  # mask = Image.new('L', avatar_size, 0)
+  # draw_mask = ImageDraw.Draw(mask)
+  # draw_mask.ellipse((0, 0) + avatar_size, fill=255)
+
+  # # Apply the mask to the avatar to get a circular image
+  # circular_avatar = ImageOps.fit(avatar, mask.size, centering=(0.5, 0.5))
+  # circular_avatar.putalpha(mask)
+
+  # # Paste the circular avatar onto the template
+  # image.paste(circular_avatar, avatar_position, circular_avatar)
 
   # Save to a bytes buffer
   buffer = BytesIO()
@@ -235,7 +341,7 @@ class IMGProfile(commands.Cog):
     }
 
     # Call the function with the context and profile data
-    await create_profile_image(ctx, profile_data)
+    await create_profile_image(ctx, profile_data, avatar_url, user_id)
 
     # # Send the embed and store the view and message in the dictionary
     # message = await ctx.send(embed=embed, view=view)

@@ -198,6 +198,20 @@ class Player(Combat_Entity):
     if not response:
       raise Exception('Failed to update player state.')
 
+  def download_player_settings(self, user_id):
+    response = supabase.table('Inventory').select('settings').eq(
+        'discord_id', user_id).execute()
+    if not response:
+      raise Exception('Failed to download player settings.')
+    return response
+
+  def download_player_unlocks(self, user_id):
+    response = supabase.table('Inventory').select('unlocked_cosmetics').eq(
+        'discord_id', user_id).execute()
+    if not response:
+      raise Exception('Failed to download player unlocked cosmetics.')
+    return response
+
   def cast_spell(self, enemy):
     self.is_defending = False
     # Simplified spell logic

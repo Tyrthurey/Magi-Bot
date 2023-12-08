@@ -18,6 +18,9 @@ async def send_cat(ctx):
 # Bot command to send a random cat picture
 @commands.command(name="cat", help="Sends a random cat pic.")
 async def cat(ctx):
+  print("---------------------------------------")
+  print(f"{ctx.author} ran the cat command.")
+  print("---------------------------------------")
   await send_cat(ctx)
 
 

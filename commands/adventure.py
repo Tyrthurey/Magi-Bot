@@ -43,6 +43,9 @@ async def get_location_name(location_id):
                   aliases=["a", "adv"],
                   help="Go on an awesome adventure!")
 async def adventure(ctx):
+  print("---------------------------------------")
+  print(f"{ctx.author} ran the adventure command.")
+  print("---------------------------------------")
 
   player = Player(ctx.author)
   # Check if the player is already in a command
@@ -150,10 +153,6 @@ async def adventure(ctx):
   # Start combat with the initial embed
   view = AdvCombatView(ctx, player, enemy)
   await ctx.send(embed=embed, view=view)
-
-
-
-  
 
 
 # Export the command function to be imported in main.py

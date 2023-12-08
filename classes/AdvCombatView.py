@@ -327,9 +327,9 @@ class AdvCombatView(CombatView):
 
     await self.ctx.send(
         f'{message1}'
-        f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
+        f"Gained `{additional_exp}`EXP, and `{gold_reward}` <:apocalypse_coin:1182666655420125319>! \n"
         f"Current Health: `{self.player.health}/{self.player.max_health}`HP. \n"
-        f"{f':arrow_up: Level Up to lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
+        f"{f'<a:LV_UP:1182650004486242344> Level Up to Lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
         f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}"
     )
 

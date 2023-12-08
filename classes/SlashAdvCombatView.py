@@ -172,7 +172,7 @@ class SlashAdvCombatView(CombatView):
     # If an item is dropped, add it to the player's inventory
     if item_dropped:
       dropped_item_id = self.enemy.drop_item_id
-      await item_write(self.ctx.author.id, dropped_item_id, 1)  # Amount is 1
+      await item_write(interaction.user.id, dropped_item_id, 1)  # Amount is 1
 
     # Now send a message to the user with the outcome of the hunt
     # Including whether an item was dropped and which mob was encountered
@@ -293,7 +293,7 @@ class SlashAdvCombatView(CombatView):
 
     await self.interaction.followup.send(
         f"{message1}"
-        f"Gained `{additional_exp}` EXP, and `{gold_reward}` gold!\n"
+        f"Gained `{additional_exp}` EXP, and `{gold_reward}` <:apocalypse_coin:1182666655420125319>!\n"
         f"Current Health: `{self.player.health}/{self.player.max_health}`HP. \n"
         f"{f':arrow_up: Level Up to lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
         f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}"
