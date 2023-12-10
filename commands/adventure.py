@@ -118,8 +118,7 @@ async def adventure(ctx):
     player.set_using_command(False)
     return
 
-  selected_mob = random.choice(
-      mobs_list)  # Randomly select a mob from the correct floor
+  selected_mob = random.choice(mobs_list)  # Randomly select a mob
 
   mob_id = selected_mob['id']
 

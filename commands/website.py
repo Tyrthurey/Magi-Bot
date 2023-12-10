@@ -2,7 +2,8 @@ from nextcord.ext import commands
 
 
 async def website(ctx):
-  await ctx.send('# [Magi RPG website](https://magi-bot.tyrthurey.repl.co/)')
+  await ctx.send(
+      '# [Apocalypse RPG Website](https://magi-bot.tyrthurey.repl.co/)')
 
 
 # Bot command to send a hello message

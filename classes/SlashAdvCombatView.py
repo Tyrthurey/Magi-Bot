@@ -131,6 +131,7 @@ class SlashAdvCombatView(CombatView):
     if self.player.bal < 20:
       self.player.bal = 20
     self.player.health = self.player.max_health
+    self.player.deaths = self.player.deaths + 1
 
     lostrewardsmsg = (
         # f"**{self.player.name}** lost all rewards, including `{level_change}` level and `{gold_loss}`% of their gold."
@@ -141,8 +142,8 @@ class SlashAdvCombatView(CombatView):
     # Update the embed to show the player's action
     await self.update_embed(interaction)
     await self.interaction.followup.send(
-        f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.\n{lostrewardsmsg}"
-    )
+        f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.\n{lostrewardsmsg}\n"
+        f"Deaths: `{self.player.deaths}`")
 
     self.player.set_using_command(False)  # Reset the using_command field
     self.player.save_data()
@@ -293,9 +294,9 @@ class SlashAdvCombatView(CombatView):
 
     await self.interaction.followup.send(
         f"{message1}"
-        f"Gained `{additional_exp}` EXP, and `{gold_reward}` <:apocalypse_coin:1182666655420125319>!\n"
-        f"Current Health: `{self.player.health}/{self.player.max_health}`HP. \n"
-        f"{f':arrow_up: Level Up to lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
+        f"Gained `{additional_exp}` <:EXP:1182800499037196418>, and `{gold_reward}` <:apocalypse_coin:1182666655420125319>!\n"
+        f"Current Health: `{self.player.health}/{self.player.max_health}` <:life:1175932745256554506> \n"
+        f"{f'<a:LV_UP:1182650004486242344> Level Up to lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
         f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}"
     )
 

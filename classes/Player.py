@@ -39,7 +39,9 @@ class Player(Combat_Entity):
 
     # Set player attributes with the new stats
     self.exists = data.get('exists', False)
-    self.name = self.discord_user.display_name
+    self.name = data.get('username', 'default')
+    self.deaths = data.get('deaths', 0)
+    #self.name = self.discord_user.display_name
     self.user_id = self.discord_user.id
     self.location = data.get('location', 1)
     self.bal = data.get('bal', 0)

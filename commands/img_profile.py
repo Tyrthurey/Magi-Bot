@@ -27,11 +27,10 @@ def draw_centered_text(draw, text, position, font, fill_color):
 
 
 async def create_profile_image(ctx, profile_data, avatar_url, user_id):
-  fill_color = 'black'
+  fill_color = 'white'
   # Load the profile image template
   template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               'resources', 'profile_bgs',
-                               'profile_template.png')
+                               'resources', 'profile_bgs', 'profile_bg_2.png')
   image = Image.open(template_path)
   draw = ImageDraw.Draw(image)
 
@@ -311,7 +310,7 @@ class IMGProfile(commands.Cog):
 
     # Define the profile data
     profile_data = {
-        'username': username,
+        'username': player.name,
         'level': player.level,
         'adventure_exp': player.adventure_exp,
         'dash': "/",

@@ -63,7 +63,7 @@ class CombatView(View):
 
     await self.ctx.send(
         f"**{self.player.name}** fell asleep while fighting {self.enemy.name} and died! \nYour problems don't go away if you ignore them."
-    )
+        f"Deaths: `{self.player.deaths}`")
 
     # Reset the using_command field
     self.player.set_using_command(False)
@@ -77,6 +77,7 @@ class CombatView(View):
     self.player.adventure_exp = 0
     self.player.bal = max(10,
                           self.player.bal - math.floor(self.player.bal * 0.1))
+    self.player.deaths = self.player.deaths + 1
     self.player.save_data()
 
     # ----------------------------------------------------------------------------------

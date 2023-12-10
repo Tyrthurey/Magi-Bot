@@ -171,9 +171,9 @@ class StatView(View):
       embed.add_field(
           name="__Status:__",
           value=f"**Class:** {self.player.class_displayname}\n"
-          f"**Atk/Def:** {self.player.damage}/{self.player.defense}\n"
+          f"**:crossed_swords:/:shield:** {self.player.damage}/{self.player.defense}\n"
           f"**<:level:1182666619378487396>** {self.player.level}\n"
-          f"**EXP:** {self.player.adventure_exp}/{self.needed_adv_level_exp}\n"
+          f"**<:EXP:1182800499037196418>** {self.player.adventure_exp}/{self.needed_adv_level_exp}\n"
           f"**<:apocalypse_coin:1182666655420125319>** {self.player.bal}\n"
           f"**:map:** {self.location_name}\n"
           f"**<:life:1175932745256554506>** {self.player.health}/{self.player.max_health}\n"
@@ -327,9 +327,9 @@ class Profile(commands.Cog):
     embed.add_field(
         name="__Status:__",
         value=f"**Class:** {player.class_displayname}\n"
-        f"**Atk/Def:** {player.damage}/{player.defense}\n"
+        f"**:crossed_swords:/:shield:** {player.damage}/{player.defense}\n"
         f"**<:level:1182666619378487396>** {player.level}\n"
-        f"**EXP:** {player.adventure_exp}/{needed_adv_level_exp}\n"
+        f"**<:EXP:1182800499037196418>** {player.adventure_exp}/{needed_adv_level_exp}\n"
         f"**<:apocalypse_coin:1182666655420125319>** {player.bal}\n"
         f"**:map:** {location_name}\n"
         f"**<:life:1175932745256554506>** {player.health}/{player.max_health}\n"

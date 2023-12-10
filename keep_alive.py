@@ -3,6 +3,7 @@ import threading
 import supabase
 import os
 from supabase import create_client, Client
+from waitress import serve
 
 app = Flask('')
 
@@ -46,7 +47,7 @@ def leaderboard_route():
 
 
 def run():
-  app.run(host='0.0.0.0', port=8080)
+  serve(app, host='0.0.0.0', port=8080)
 
 
 def keep_alive():

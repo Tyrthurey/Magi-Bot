@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <link 
+      rel="apple-touch-icon" 
+      sizes="180x180" 
+      href="{{ url_for('static', filename='images/apple-touch-icon.png') }}" />
+    <link 
+      rel="icon" 
+      type="image/png" 
+      sizes="32x32" 
+      href="{{ url_for('static', filename='images/favicon-32x32.png') }}" />
+    <link 
+      rel="icon" 
+      type="image/png" 
+      sizes="16x16" 
+      href="{{ url_for('static', filename='images/favicon-16x16.png') }}" />
+    <link 
+      rel="manifest" 
+      href="{{ url_for('static', filename='site.webmanifest') }}" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Apocalypse RPG</title>
@@ -152,14 +169,17 @@
       >
         <img
           src="{{ url_for('static', filename='images/discord-mark-white.svg') }}"
-          alt="Discord" 
-          class="button-icon"/>
+          alt="Discord"
+          class="button-icon"
+        />
         Join Our Discord!
       </a>
       <a href="https://potomacstories.com/" class="fancy-button stories-button">
-        <img src="{{ url_for('static', filename='images/book.png') }}" 
-          alt="Stories" 
-          class="button-icon"/>
+        <img
+          src="{{ url_for('static', filename='images/book.png') }}"
+          alt="Stories"
+          class="button-icon"
+        />
         Go look at our stories!
       </a>
     </div>

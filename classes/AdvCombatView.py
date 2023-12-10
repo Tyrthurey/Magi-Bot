@@ -13,6 +13,7 @@ from supabase import Client, create_client
 from classes.CombatView import CombatView
 from functions.item_write import item_write
 from functions.check_inventory import check_inventory
+from functions.item_write import item_write
 
 logging.basicConfig(level=logging.INFO)
 
@@ -165,6 +166,7 @@ class AdvCombatView(CombatView):
     if self.player.bal < 20:
       self.player.bal = 20
     self.player.health = self.player.max_health
+    self.player.deaths = self.player.deaths + 1
 
     lostrewardsmsg = (
         # f"**{self.player.name}** lost all rewards, including `{level_change}` level and `{gold_loss}`% of their gold."
@@ -176,7 +178,8 @@ class AdvCombatView(CombatView):
     await self.update_embed(interaction)
     await self.ctx.send(
         f"**{self.player.name}** could not handle a {self.enemy.name}! Noob.\n"
-        f"{lostrewardsmsg}")
+        f"{lostrewardsmsg}\n"
+        f"Deaths: `{self.player.deaths}`")
 
     self.player.set_using_command(False)  # Reset the using_command field
     self.player.save_data()
@@ -327,8 +330,8 @@ class AdvCombatView(CombatView):
 
     await self.ctx.send(
         f'{message1}'
-        f"Gained `{additional_exp}`EXP, and `{gold_reward}` <:apocalypse_coin:1182666655420125319>! \n"
-        f"Current Health: `{self.player.health}/{self.player.max_health}`HP. \n"
+        f"Gained `{additional_exp}` <:EXP:1182800499037196418>, and `{gold_reward}` <:apocalypse_coin:1182666655420125319>! \n"
+        f"Current Health: `{self.player.health}/{self.player.max_health}` <:life:1175932745256554506> \n"
         f"{f'<a:LV_UP:1182650004486242344> Level Up to Lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n"
         f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}"
     )

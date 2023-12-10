@@ -80,7 +80,7 @@ class SuggestionCog(commands.Cog):
   async def suggest_command(self, interaction: nextcord.Interaction,
                             suggestion: str):
     user_data_response = await asyncio.get_event_loop().run_in_executor(
-        None, lambda: supabase.table('Players').select('using_command').eq(
+        None, lambda: supabase.table('Users').select('using_command').eq(
             'discord_id', interaction.user.id).execute())
     if not user_data_response.data:
       await interaction.response.send_message("You do not have a profile yet.")
