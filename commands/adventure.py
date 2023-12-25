@@ -19,6 +19,7 @@ from classes.TutorialView import TutorialView
 from classes.Enemy import Enemy
 from classes.Player import Player
 from functions.cooldown_manager import cooldown_manager_instance as cooldowns
+from functions.using_command_failsafe import using_command_failsafe_instance as failsafes
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,9 +51,19 @@ async def adventure(ctx):
   player = Player(ctx.author)
   # Check if the player is already in a command
   if player.using_command:
-    await ctx.send(
-        "You're already in a command. Finish it before starting another.")
-    return
+    using_command_failsafe = failsafes.get_last_used_command_time(
+        ctx.author.id, "adventure")
+    if not using_command_failsafe > 0:
+      await ctx.send("Failsafe activated! Commencing with command!")
+    else:
+      await ctx.send(
+          "You're already in a command. Finish it before starting another.\n"
+          f"Failsafe will activate in `{using_command_failsafe:.2f}` seconds if you're stuck."
+      )
+      return
+
+  failsafes.set_last_used_command_time(player.user_id, "adventure", 320)
+  failsafes.set_last_used_command_time(player.user_id, "general_failsafe", 500)
 
   action_id = 4
 

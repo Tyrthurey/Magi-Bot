@@ -3,6 +3,7 @@ from nextcord.ext import commands
 from functions.check_inventory import check_inventory
 from functions.item_write import item_write
 from functions.load_settings import command_prefix
+from functions.using_command_failsafe import using_command_failsafe_instance as failsafes
 import random
 
 import logging
@@ -35,11 +36,21 @@ class Heal(commands.Cog):
           f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
       return
     user_data = user_data_response.data[0]
+
     using_command = user_data['using_command']
+
     if using_command:
-      await ctx.send(
-          "You're already in a command. Finish it before starting another.")
-      return
+      using_command_failsafe = failsafes.get_last_used_command_time(
+          ctx.author.id, "general_failsafe")
+      if not using_command_failsafe > 0:
+        await ctx.send("Failsafe activated! Commencing with command!")
+      else:
+        await ctx.send(
+            "You're already in a command. Finish it before starting another.\n"
+            f"Failsafe will activate in `{using_command_failsafe:.2f}` seconds if you're stuck."
+        )
+        return
+
     # Call the `healing` function
     if quantity.isdigit():
       heal_message = await self.healing(ctx, int(quantity))

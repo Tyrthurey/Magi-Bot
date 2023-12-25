@@ -44,6 +44,7 @@ from commands.admin import setup as admin_setup
 from commands.help import setup as help_setup
 from commands.hunt import setup as hunt_setup
 from commands.shop import setup as shop_setup
+from commands.gemshop import setup as gemshop_setup
 from commands.buy import setup as buy_setup
 from commands.dog import setup as dog_setup
 from commands.cat import setup as cat_setup
@@ -70,6 +71,8 @@ bot = commands.Bot(command_prefix=command_prefix,
                    intents=intents,
                    help_command=None,
                    case_insensitive=True)
+
+from nextcord.ext import tasks
 
 
 async def save_settings(guild_id: int, new_settings):
@@ -221,35 +224,8 @@ async def start(ctx):
     # Set the initial values for the new user
     initial_data = {
         'discord_id': user_id,
-        'username': username,
-        'location': 0,
-        'adventure_exp': 0,
-        'level': 1,
-        'free_points': 5,
-        'health': 25,
-        'max_health': 25,
-        'energy': 13,
-        'max_energy': 13,
-        'strength': 5,
-        'dexterity': 5,
-        'vitality': 5,
-        'cunning': 5,
-        'magic': 5,
-        'luck': 5,
-        'recovery_speed': 5,
-        'damage': 12,
-        'defence': 12,
-        'bal': 100,
-        'floor': 1,
-        'max_floor': 1,
-        'level_ignore': 0,
-        'crit_chance': 4,
-        'dodge_chance': 10,
-        'escape_chance': 50,
-        'accuracy': 50,
-        'deaths': 0,
-        'server_exp': 0,
-        'server_level': 0
+        'discord_str_id': f'{user_id}',
+        'username': username
     }
     return supabase.table('Users').insert(initial_data).execute()
 
@@ -466,6 +442,7 @@ try:
   dungeon_setup(bot)
   adv_setup(bot)
   floor_setup(bot)
+  gemshop_setup(bot)
 
   bot.load_extension("commands.titles")
   bot.load_extension("commands.get_title")
@@ -483,7 +460,6 @@ try:
 
   bot.load_extension("commands.img_profile")
   bot.load_extension("commands.profile_settings")
-  bot.load_extension("commands.NEWprofile_settings")
 
   keep_alive()
 

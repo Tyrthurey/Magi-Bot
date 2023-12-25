@@ -165,7 +165,8 @@ class StatView(View):
           f":magic_wand: **MAG:** {self.player.base_magic} ({self.player.magic})\n"
           f":four_leaf_clover: **LUCK:** {self.player.luck}\n"
           f"**Stat Score:** {self.player.stat_score}\n"
-          f"**Free Points:** {self.player.free_points}\n",
+          f"**Free Points:** {self.player.free_points}\n"
+          f"**Deaths:** {self.player.deaths}\n",
           inline=True)
 
       embed.add_field(
@@ -175,6 +176,7 @@ class StatView(View):
           f"**<:level:1182666619378487396>** {self.player.level}\n"
           f"**<:EXP:1182800499037196418>** {self.player.adventure_exp}/{self.needed_adv_level_exp}\n"
           f"**<:apocalypse_coin:1182666655420125319>** {self.player.bal}\n"
+          f"**<:apocalypse_gem:1183576348485234698>** {self.player.gems}\n"
           f"**:map:** {self.location_name}\n"
           f"**<:life:1175932745256554506>** {self.player.health}/{self.player.max_health}\n"
           f"**:zap:** {self.player.energy}/{self.player.max_energy}",
@@ -239,10 +241,12 @@ class Profile(commands.Cog):
 
     user_id = user.id
     username = user.display_name
+
     avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
 
     # Create a Player instance for the user
     player = Player(user)
+    username = player.displayname if player.displayname != 'Default' else player.name
 
     # If the player does not exist in the database yet
     if not player.exists:
@@ -321,7 +325,8 @@ class Profile(commands.Cog):
         f":magic_wand: **MAG:** {player.base_magic} ({player.magic})\n"
         f":four_leaf_clover: **LUCK:** {player.luck}\n"
         f"**Stat Score:** {player.stat_score}\n"
-        f"**Free Points:** {player.free_points}\n",
+        f"**Free Points:** {player.free_points}\n"
+        f"**Deaths:** {player.deaths}\n",
         inline=True)
 
     embed.add_field(
@@ -331,6 +336,7 @@ class Profile(commands.Cog):
         f"**<:level:1182666619378487396>** {player.level}\n"
         f"**<:EXP:1182800499037196418>** {player.adventure_exp}/{needed_adv_level_exp}\n"
         f"**<:apocalypse_coin:1182666655420125319>** {player.bal}\n"
+        f"**<:apocalypse_gem:1183576348485234698>** {player.gems}\n"
         f"**:map:** {location_name}\n"
         f"**<:life:1175932745256554506>** {player.health}/{player.max_health}\n"
         f"**:zap:** {player.energy}/{player.max_energy}",

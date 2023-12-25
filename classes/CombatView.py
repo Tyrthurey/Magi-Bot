@@ -60,9 +60,9 @@ class CombatView(View):
     # Code to handle the timeout scenario
     # For example, send a message to the channel indicating the timeout
     # Update the embed to show the player's action
-
+    self.player.deaths = self.player.deaths + 1
     await self.ctx.send(
-        f"**{self.player.name}** fell asleep while fighting {self.enemy.name} and died! \nYour problems don't go away if you ignore them."
+        f"**{self.player.name}** fell asleep while fighting {self.enemy.name} and died! \nYour problems don't go away if you ignore them.\n"
         f"Deaths: `{self.player.deaths}`")
 
     # Reset the using_command field
@@ -77,7 +77,7 @@ class CombatView(View):
     self.player.adventure_exp = 0
     self.player.bal = max(10,
                           self.player.bal - math.floor(self.player.bal * 0.1))
-    self.player.deaths = self.player.deaths + 1
+
     self.player.save_data()
 
     # ----------------------------------------------------------------------------------
@@ -293,8 +293,10 @@ class CombatView(View):
 
   async def handle_flee(self, interaction: nextcord.Interaction):
     # Logic for handling flee
+    self.player.times_fled = self.player.times_fled + 1
     await self.ctx.send(
-        f"**{self.player.name}** has fled from the battle! Coward.")
+        f"**{self.player.name}** has fled from the battle! Coward."
+        f"\n**Times fled:** `{self.player.times_fled}`")
     self.player.set_using_command(False)  # Reset the using_command field
     self.player.save_data()
     self.stop()  # Stop the view to clean up

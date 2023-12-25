@@ -26,33 +26,50 @@ def draw_centered_text(draw, text, position, font, fill_color):
   draw.text((x, y), text, font=font, fill=fill_color)
 
 
+async def fetch_user_settings(user_id):
+  response = await bot.loop.run_in_executor(
+      None, lambda: supabase.table('Inventory').select('settings').eq(
+          'discord_id', user_id).execute())
+  data = response.data
+  if data and 'settings' in data[0]:
+    settings = data[0]['settings']
+    return settings
+  return None  # or return a default settings structure
+
+
 async def create_profile_image(ctx, profile_data, avatar_url, user_id):
   fill_color = 'white'
+  premade_avatar = 'True'
+  # Default settings if not found in the database
+  premade_avatar_id = 0
+  premade_avatar_gender = 'male'
+  profile_background_id = 0
   # Load the profile image template
+
+  current_settings = await fetch_user_settings(user_id)
+  for setting in current_settings:
+    if 'premade_avatar_id' in setting:
+      premade_avatar_id = setting['premade_avatar_id']
+    elif 'premade_avatar_gender' in setting:
+      premade_avatar_gender = setting['premade_avatar_gender']
+    elif 'premade_avatar' in setting:
+      premade_avatar = setting['premade_avatar']
+    elif 'profile_avatar_url' in setting:
+      avatar_custom_url = setting['profile_avatar_url']
+    elif 'profile_text_color' in setting:
+      fill_color = setting['profile_text_color']
+    elif 'profile_ring_id' in setting:
+      profile_ring_id = setting['profile_ring_id']
+    elif 'profile_background_id' in setting:
+      profile_background_id = setting['profile_background_id']
+
   template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               'resources', 'profile_bgs', 'profile_bg_2.png')
+                               'resources', 'profile_bgs', 'bgs',
+                               f'{profile_background_id}.png')
   image = Image.open(template_path)
   draw = ImageDraw.Draw(image)
 
-  # Fetch the custom profile picture settings from the database
-  settings_response = await bot.loop.run_in_executor(
-      None, lambda: supabase.table('Inventory').select('settings').eq(
-          'discord_id', user_id).execute())
-
-  if settings_response.data:
-    settings = settings_response.data[0]['settings']
-    # Check if settings is a string and parse it if necessary
-    if isinstance(settings, str):
-      settings = json.loads(settings)
-
-    profile_pic_name = settings.get('profile_pic_name', 'default.png')
-    profile_pic_gender = settings.get('profile_pic_gender', 'male')
-  else:
-    # Default settings if not found in the database
-    profile_pic_name = 'default.png'
-    profile_pic_gender = 'male'
-
-  if profile_pic_name == 'discord' and profile_pic_gender == 'discord':
+  if premade_avatar == 'False':
     # Code to load and process the Discord user's avatar
     center_x, center_y = (352, 331)  # Center X, Y coordinates on the template
     avatar_size = (315, 315)  # Width, Height
@@ -82,11 +99,11 @@ async def create_profile_image(ctx, profile_data, avatar_url, user_id):
 
     # Paste the ring image on top
     image.paste(ring_image, (0, 0), ring_image)
-  else:
+  elif premade_avatar == 'True':
     # Path to the selected profile image
     profile_image_path = os.path.join('commands', 'resources',
-                                      f'{profile_pic_gender}_pfps',
-                                      profile_pic_name)
+                                      f'{premade_avatar_gender}_pfps', 'pfps',
+                                      f'{premade_avatar_id}.png')
     if os.path.exists(profile_image_path):
       selected_image = Image.open(profile_image_path)
       image.paste(selected_image, (0, 0), selected_image)
@@ -98,8 +115,8 @@ async def create_profile_image(ctx, profile_data, avatar_url, user_id):
                   selected_image)  # Pasting at the top-left corner
     else:
       # Load a default image if the selected image does not exist
-      default_image_path = os.path.join('commands', 'resources', 'male',
-                                        'default.png')
+      default_image_path = os.path.join('commands', 'resources', 'male_pfps',
+                                        'pfps', '0.png')
       selected_image = Image.open(default_image_path)
 
   # Define the font path relative to the resources folder
@@ -308,9 +325,11 @@ class IMGProfile(commands.Cog):
 
     get_achievement_cog = GetAchievement(self.bot)
 
+    displayname = player.displayname if player.displayname != 'Default' else player.name
+
     # Define the profile data
     profile_data = {
-        'username': player.name,
+        'username': displayname,
         'level': player.level,
         'adventure_exp': player.adventure_exp,
         'dash': "/",

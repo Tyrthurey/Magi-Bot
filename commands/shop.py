@@ -61,7 +61,7 @@ async def shopping(ctx):
     embed.add_field(
         name=item['item_displayname'],
         value=
-        f"**Rarity:** {item['rarity']}\n**Description:** {item['description']}\n**Price:** {item['price']} Gold",
+        f"**Rarity:** {item['rarity']}\n**Description:** {item['description']}\n**Price:** {item['price']} <:apocalypse_coin:1182666655420125319>",
         inline=False)
   embed.set_author(name=ctx.author.display_name, icon_url=avatar_url)
   embed.set_footer(text="Help us improve! Use ::suggest <suggestion>.")

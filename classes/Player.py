@@ -39,12 +39,15 @@ class Player(Combat_Entity):
 
     # Set player attributes with the new stats
     self.exists = data.get('exists', False)
-    self.name = data.get('username', 'default')
+    self.displayname = data.get('displayname', 'Default')
+    self.name = self.displayname if self.displayname != 'Default' else self.discord_user.name
     self.deaths = data.get('deaths', 0)
+    self.times_fled = data.get('times_fled', 0)
     #self.name = self.discord_user.display_name
     self.user_id = self.discord_user.id
     self.location = data.get('location', 1)
     self.bal = data.get('bal', 0)
+    self.gems = data.get('gems', 10)
     self.adventure_exp = data.get('adventure_exp', 0)
     self.free_points = data.get('free_points', 0)
     self.health = data.get('health', 25)
@@ -136,6 +139,7 @@ class Player(Combat_Entity):
 
   def save_data(self):
     response = supabase.table('Users').update({
+        'discord_str_id': f'{self.user_id}',
         'free_points': self.free_points,
         'location': self.location,
         'health': self.health,
@@ -149,6 +153,8 @@ class Player(Combat_Entity):
         'magic': self.base_magic,
         'luck': self.luck,
         'level': self.level,
+        'deaths': self.deaths,
+        'times_fled': self.times_fled,
         'adventure_exp': self.adventure_exp,
         'bal': self.bal,
         'dung_tutorial': self.dung_tutorial,
