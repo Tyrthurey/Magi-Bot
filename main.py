@@ -144,7 +144,7 @@ async def on_ready():
 
       # If there is no entry, insert the default settings
       if not existing.data:
-        default_settings = {"embed_color": "green", "prefix": "::"}
+        default_settings = {"embed_color": "green", "prefix": "apo "}
         supabase.table('ServerSettings').insert({
             'server_id': guild.id,
             'settings': default_settings,
@@ -173,7 +173,7 @@ async def on_ready():
 
   print(f'Logged in as {bot.user.name}')
   # Set the playing status
-  game = nextcord.Game("::start | ::help | ::shop")
+  game = nextcord.Game("apo start | apo help | apo gemshop")
   await bot.change_presence(activity=game)
 
 
@@ -261,7 +261,16 @@ async def on_message(message):
       if operation_channel_id and message.channel.id != operation_channel_id:
         return
 
+  old_prefix = '::'
+
   prefix = await command_prefix(bot, message)
+
+  if message.content.startswith(old_prefix) and (old_prefix != prefix):
+    await message.channel.send(
+        f"The prefix `::` has been discontinued. Please use `apo <command>` instead."
+    )
+    return
+
   if not message.content.startswith(prefix):
     return
 
@@ -451,6 +460,8 @@ class CustomIdModal(nextcord.ui.Modal):
 
   async def callback(self, interaction: nextcord.Interaction):
     new_value = self.children[0].value
+    # If using a special character to represent space, replace it back to space here
+    new_value = new_value.replace('<space>', ' ')
     settings = {}
     if self.title == "Change Prefix":
       settings["prefix"] = new_value
@@ -492,7 +503,8 @@ async def settings_command(ctx):
       inline=True)
   embed.add_field(
       name="Prefix",
-      value=f"Current prefix is `{bot_settings.get('prefix', '::')}`",
+      value=
+      f"Current prefix is `{bot_settings.get('prefix', 'apo ')}`\n---\n**To add a space to your prefix use *<space>***",
       inline=True)
   embed.add_field(
       name="Operation Channel",

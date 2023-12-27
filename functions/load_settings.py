@@ -23,7 +23,7 @@ async def load_settings(server_id: int):
     return response.data[0]['settings']
   else:
     # Include a 'channel_id' setting with a default value of None
-    return {'embed_color': 'green', 'prefix': '::', 'channel_id': None}
+    return {'embed_color': 'green', 'prefix': 'apo ', 'channel_id': None}
 
 
 async def command_prefix(bot, message):
@@ -33,7 +33,7 @@ async def command_prefix(bot, message):
   if guild_id:
     settings = get_settings_cache(guild_id)
     if settings:
-      prefix = settings.get('prefix', '::')
+      prefix = settings.get('prefix', 'apo ')
       return prefix
     else:
       # Query the prefix setting from the Supabase for the specific guild
@@ -41,8 +41,8 @@ async def command_prefix(bot, message):
           'server_id', guild_id).execute()
       if response.data:
         settings = response.data[0]['settings']
-        return settings.get('prefix', '::')  # Default to '::' if not found
-  return '::'  # Default to '::' if we are in DMs or if the guild_id is not found
+        return settings.get('prefix', 'apo ')  # Default to '::' if not found
+  return 'apo '  # Default to '::' if we are in DMs or if the guild_id is not found
 
 
 async def get_prefix(bot, message):
