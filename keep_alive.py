@@ -22,7 +22,7 @@ def homepage():
 
 
 def fetch_leaderboard():
-  # Query the database, filtering out bots and getting the top players
+  # Query the database
   results = supabase.table('Users').select('*').execute()
 
   if results.data:

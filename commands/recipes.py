@@ -1,4 +1,3 @@
-import asyncio
 from nextcord.ext import commands
 from nextcord import slash_command, SlashOption
 import nextcord
@@ -8,31 +7,25 @@ from main import bot, supabase
 from functions.load_settings import get_embed_color
 from classes.Player import Player
 from functions.using_command_failsafe import using_command_failsafe_instance as failsafes
-import os
-from PIL import Image, ImageSequence
-import io
-import functools
 
 
-class Area(commands.Cog):
+class Recipes(commands.Cog):
 
   def __init__(self, bot):
     self.bot = bot
 
-  @slash_command(name="area", description="See area information.")
-  async def area_slash(self, interaction: nextcord.Interaction):
-    await self.area(interaction)
+  @slash_command(name="recipes",
+                 description="Crafting recipes and information.")
+  async def recipes_slash(self, interaction: nextcord.Interaction):
+    await self.recipes(interaction)
 
-  @commands.command(name="area",
-                    aliases=["areas"],
-                    help="See area information.")
-  async def area_text(self, ctx):
-    await self.area(ctx)
+  @commands.command(name="recipes",
+                    aliases=["recipe"],
+                    help="Crafting recipes and information.")
+  async def recipes_text(self, ctx):
+    await self.recipes(ctx)
 
-  async def area(self, interaction):
-    send_message = interaction.response.send_message
-    author = "Unknown"
-    user_id = 0
+  async def recipes(self, interaction):
     # If it's a text command, get the author from the context
     if isinstance(interaction, commands.Context):
       user_id = interaction.author.id
@@ -62,6 +55,15 @@ class Area(commands.Cog):
         )
         return
 
+    embed_color = await get_embed_color(
+        None if interaction.guild is None else interaction.guild.id)
+
+    embed = nextcord.Embed(title="Recipes", color=embed_color)
+
+    embed.add_field(name="Recipes", value="recipe 1, 2, 3")
+
+    await send_message(embed=embed)
+
     # Instead of `ctx.send`, use `send_message`
     # Instead of `ctx.author`, use the `author` variable
 
@@ -73,4 +75,4 @@ class Area(commands.Cog):
 
 
 def setup(bot):
-  bot.add_cog(Area(bot))
+  bot.add_cog(Recipes(bot))

@@ -49,6 +49,12 @@ async def adventure(ctx):
   print("---------------------------------------")
 
   player = Player(ctx.author)
+
+  if not player.exists:
+    await ctx.send(
+        f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+    return
+
   # Check if the player is already in a command
   if player.using_command:
     using_command_failsafe = failsafes.get_last_used_command_time(

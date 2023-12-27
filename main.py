@@ -10,7 +10,7 @@ from nextcord.ext import commands, tasks
 from nextcord.ext.commands import has_permissions
 from nextcord import SelectOption, message, Embed
 from nextcord.ui import Select, Button, View
-from nextcord import Interaction
+from nextcord import Interaction, InteractionResponse
 from nextcord import ActionRow
 from nextcord.ext.commands import UserConverter
 import aiofiles
@@ -38,6 +38,7 @@ from functions.cooldown_manager import cooldown_manager_instance
 from functions.get_achievement import GetAchievement
 
 from classes.TutorialView import TutorialView
+from classes.Player import Player
 
 from commands.website import setup as web_setup
 from commands.admin import setup as admin_setup
@@ -176,6 +177,72 @@ async def on_ready():
   await bot.change_presence(activity=game)
 
 
+class CalibrationView(nextcord.ui.View):
+
+  def __init__(self, ctx, user, attempts=0):
+    super().__init__()
+    self.ctx = ctx
+    self.user = user
+    self.attempts = attempts
+    self.next_button.disabled = False  # Ensure the button is enabled initially
+
+  @nextcord.ui.button(label="Next", style=nextcord.ButtonStyle.green)
+  async def next_button(self, button: nextcord.ui.Button,
+                        interaction: nextcord.Interaction):
+    self.next_button.disabled = True  # Disable the button to prevent rapid clicks
+    try:
+      print(self.user)
+      await self.user.send(
+          "Test DM: Calibration successful! Welcome to the game, you are now ready."
+      )
+      await self.ctx.channel.send("DM sent successfully. You are ready to go!")
+      await asyncio.get_event_loop().run_in_executor(
+          None, lambda: supabase.table('Users').update({
+              'using_command': False,
+              'open_dms': True
+          }).eq('discord_id', self.user.id).execute())
+      self.stop()
+    except nextcord.HTTPException as e:
+      if e.status == 403:  # Check if the error is a Forbidden error
+        if self.attempts < 2:
+          self.attempts += 1
+          self.next_button.disabled = False  # Re-enable the button for retry
+          await self.handle_admin_notification()
+          await self.ctx.channel.send(
+              "Error sending DM. Please make sure your DMs are open and try again.\nContact <@243351582052188170> for assistance.\nThey have been notified.",
+              view=self)
+
+        else:
+          await self.handle_admin_notification()
+          await self.ctx.channel.send(
+              "Unable to send DM. Please contact an admin (<@243351582052188170>) for assistance.\nThey have been notified."
+          )
+          self.stop()
+      elif e.status == 429:  # Check if the error is a rate limit error
+        await self.ctx.channel.send(
+            "Rate limit exceeded. Please wait a moment before trying again.")
+        self.stop()
+
+  async def handle_admin_notification(self):
+    try:
+      admin_id = 243351582052188170
+      admin = await bot.fetch_user(admin_id)
+      await admin.send(
+          f"User <@{self.user.id}> ({self.user}) in server **{self.ctx.guild}** ({self.ctx.guild.id}) is having issues receiving DMs."
+      )
+      self.stop()
+    except nextcord.HTTPException as e:
+      if e.status == 429:
+        await self.ctx.channel.send(
+            "Too many bad requests. Please contact an admin (<@243351582052188170>) for assistance."
+        )
+        self.stop()
+
+
+# Cache for storing the lock state
+locked = False
+
+
 @bot.event
 async def on_message(message):
   print("------------------------------------------------")
@@ -194,13 +261,86 @@ async def on_message(message):
       if operation_channel_id and message.channel.id != operation_channel_id:
         return
 
+  prefix = await command_prefix(bot, message)
+  if not message.content.startswith(prefix):
+    return
+
+  response = await asyncio.get_event_loop().run_in_executor(
+      None, lambda: supabase.table('Users').select('open_dms').eq(
+          'discord_id', message.author.id).execute())
+
+  if response.data:
+    response = response.data[0]
+
+    open_dms = response.get('open_dms', False)
+
+    if not open_dms:
+      await message.channel.send("Please calibrate your DMs first.")
+      await message.channel.send(
+          f"<@{message.author.id}> Please make sure you have DMs from server members open on this server, or invite the bot to a personal server and allow it to DM you from there. \n\n**Important notifications will be sent directly as DMs.**\n\n**Mobile:** Simply *long press* the server icon, tap *'More Options'*, and scroll down until you find *'Allow Direct Messages'*. Enable that. \n**Desktop:** https://i.imgur.com/PE797Rv.png"
+      )
+
+      await asyncio.get_event_loop().run_in_executor(
+          None, lambda: supabase.table('Users').update({
+              'using_command': True
+          }).eq('discord_id', message.author.id).execute())
+
+      await message.channel.send(view=CalibrationView(message, message.author))
+      return
+
+  # Check if the bot is locked
+  if locked and message.author.id != 243351582052188170:
+    await message.channel.send("The bot is currently locked.")
+    return
+
   # Process commands (if any)
   await bot.process_commands(message)
+
+
+@bot.event
+async def on_interaction(interaction: nextcord.Interaction):
+  print("------------------------------------------------")
+
+  # Handling Command Interactions
+  if interaction.type == nextcord.InteractionType.application_command:
+    # Get server ID and cached settings
+    server_id = interaction.guild_id
+    settings = get_settings_cache(server_id) if server_id else None
+
+    if settings:
+      operation_channel_id = settings.get('channel_id')
+      # Check if the interaction is in the designated channel
+      if operation_channel_id and interaction.channel_id != operation_channel_id:
+        await interaction.response.send_message(
+            f"This isnt the designated channel. Please use <#{operation_channel_id}>"
+        )
+        return
+
+    # Check if the bot is locked
+    if locked:
+      await interaction.response.send_message("The bot is currently locked.")
+      return
+    # If not locked, continue processing the command
+    # Continue with other interaction checks here if necessary
+
+  await bot.process_application_commands(interaction)
 
 
 # Remember to add a function to update the cache when settings change
 async def update_settings_cache(server_id, new_settings):
   update_settings_cache_here(server_id, new_settings)
+
+
+@bot.command(name="lockdown",
+             help="Locks down the bot. Only usable by the bot owner.")
+async def lockdown(ctx):
+  global locked
+  if ctx.author.id == 243351582052188170:
+    locked = not locked
+    state = "locked" if locked else "unlocked"
+    await ctx.send(f"Bot is now {state}.")
+  else:
+    await ctx.send("You do not have permission to use this command.")
 
 
 @bot.command(
@@ -216,16 +356,24 @@ async def start(ctx):
     return supabase.table('Users').select('discord_id').eq(
         'discord_id', user_id).execute()
 
-  def insert_new_user():
+  async def insert_new_user():
     print("---------------------------------------")
     print("A NEW HAND HAS TOUTCHED THE BEACON")
     print(f"ALL HAIL THE NEWBIE: {username}")
     print("---------------------------------------")
+    admin_id = 243351582052188170
+    admin = await bot.fetch_user(admin_id)
+    guild = ctx.guild if ctx.guild else "DMs"
+    guild_id = ctx.guild.id if ctx.guild else None
+    await admin.send(
+        f"A NEW HAND HAS TOUTCHED THE BEACON\nALL HAIL THE NEWBIE <@{ctx.author.id}> (**{username}**) JOINING FROM **{guild}** ({guild_id})."
+    )
     # Set the initial values for the new user
     initial_data = {
         'discord_id': user_id,
         'discord_str_id': f'{user_id}',
-        'username': username
+        'username': username,
+        'using_command': True
     }
     return supabase.table('Users').insert(initial_data).execute()
 
@@ -237,7 +385,8 @@ async def start(ctx):
                    )
   else:
     # The user doesn't exist, so add them to the database with initial values
-    await bot.loop.run_in_executor(None, insert_new_user)
+    # await bot.loop.run_in_executor(None, insert_new_user)
+    await insert_new_user()
     # Send a message with the tutorial
     tutorial_embeds = [
         nextcord.Embed(title="Welcome, and congratulations!",
@@ -263,12 +412,29 @@ async def start(ctx):
     get_achievement_cog = GetAchievement(bot)
     await get_achievement_cog.get_achievement(ctx, ctx.author.id, 1)
 
+    await ctx.send(
+        f"<@{ctx.author.id}> Please make sure you have DMs from server members open on this server, or invite the bot to a personal server and allow it to DM you from there. \n\n**Important notifications will be sent directly as DMs.**\n\n**Mobile:** Simply *long press* the server icon, tap *'More Options'*, and scroll down until you find *'Allow Direct Messages'*. Enable that. \n**Desktop:** https://i.imgur.com/PE797Rv.png"
+    )
+    await ctx.send(view=CalibrationView(ctx, ctx.author))
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Users').update({
+            'using_command': False,
+            'open_dms': True
+        }).eq('discord_id', ctx.author.id).execute())
+
 
 # Bot command to send a random gif
 @bot.command(name="gif",
              aliases=["feed", "play", "sleep"],
              help="Sends a random dog gif.")
 async def gif(ctx):
+  with open("gifs.json") as f:
+    links = json.load(f)
+  await ctx.send(random.choice(links[ctx.invoked_with]))
+
+
+@bot.slash_command(name="gif", description="Sends a random dog gif.")
+async def slash_gif(ctx):
   with open("gifs.json") as f:
     links = json.load(f)
   await ctx.send(random.choice(links[ctx.invoked_with]))
@@ -460,6 +626,7 @@ try:
 
   bot.load_extension("commands.img_profile")
   bot.load_extension("commands.profile_settings")
+  bot.load_extension("commands.recipes")
 
   keep_alive()
 
