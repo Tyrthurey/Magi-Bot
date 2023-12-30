@@ -41,8 +41,8 @@ async def command_prefix(bot, message):
           'server_id', guild_id).execute()
       if response.data:
         settings = response.data[0]['settings']
-        return settings.get('prefix', 'apo ')  # Default to '::' if not found
-  return 'apo '  # Default to '::' if we are in DMs or if the guild_id is not found
+        return settings.get('prefix', 'apo ')  # Default to 'apo ' if not found
+  return 'apo '  # Default to 'apo ' if we are in DMs or if the guild_id is not found
 
 
 async def get_prefix(bot, message):

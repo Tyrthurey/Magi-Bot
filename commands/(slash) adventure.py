@@ -49,12 +49,20 @@ class AdventureCog(commands.Cog):
   async def adventure_slash(self, interaction: nextcord.Interaction):
     player = Player(interaction.user)
     # Check if the player is already in a command
+
+    if not player.exists:
+      await interaction.response.send_message(
+          f"{interaction.user} does not have a profile yet.\nPlease type `apo start`."
+      )
+      return
+
     if player.using_command:
       using_command_failsafe = failsafes.get_last_used_command_time(
           player.user_id, "adventure")
       if not using_command_failsafe > 0:
-        await interaction.response.send_message(
-            "Failsafe activated! Commencing with command!")
+        print("failsafe go brrrr")
+        # await interaction.response.send_message(
+        #     "Failsafe activated! Commencing with command!")
       else:
         await interaction.response.send_message(
             "You're already in a command. Finish it before starting another.\n"

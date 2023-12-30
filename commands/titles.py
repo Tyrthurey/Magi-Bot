@@ -49,35 +49,35 @@ class Titles(commands.Cog):
 
   def __init__(self, bot):
     self.bot = bot
-    self.per_page = 4
+    self.per_page = 6
     self.page = 0
+    self.title_list = []
 
   async def update_embed(self, page):
     start = page * self.per_page
     end = start + self.per_page
     self.embed.clear_fields()
     self.embed.title = f"Your Titles"
+    self.embed.description = f"To equip a title use `apo titles equip <id>`\n(without the < >)"
     self.embed.add_field(name=f"-----------------------------------------",
                          value="",
                          inline=False)
 
-    for i in range(start, min(end, len(self.titles))):
-      title = self.titles[i]
+    for title in sorted(self.titles, key=lambda x: x['id']):
       title_name = title['title_name']
-      self.embed.add_field(name="",
-                           value="**ID:** `" + str(title['id']) + "` - **" +
-                           title_name + "**",
-                           inline=False)
-      self.embed.add_field(name=f"-----------------------------------------",
-                           value="",
-                           inline=False)
+      self.title_list.append(f"**ID:** `{title['id']}` - **{title_name}**")
 
     self.embed.add_field(name="",
-                         value="Use `titles equip <id>`",
+                         value="\n".join(self.title_list[-6:]),
                          inline=False)
+    self.embed.add_field(name=f"-----------------------------------------",
+                         value="",
+                         inline=False)
+
     self.embed.add_field(name=f"Page {page + 1}/{self.max_pages + 1}",
                          value="",
                          inline=False)
+    self.title_list = []
 
   @commands.group(invoke_without_command=True,
                   aliases=["t", "title"],
@@ -139,7 +139,7 @@ class Titles(commands.Cog):
     # Check if the user has a profile
     if not user_data_response.data:
       await ctx.send(
-          f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+          f"{ctx.author} does not have a profile yet.\nPlease type `apo start`.")
       return
 
     # Fetch the inventory data for the user
@@ -184,7 +184,7 @@ class Titles(commands.Cog):
         lambda: supabase.table('Inventory').update(updated_inventory_data).eq(
             'discord_id', user_id).execute())
 
-    await ctx.send(f"You have equipped the title with ID {title_id}.")
+    await ctx.send(f"You have equipped the title with ID {id}.")
 
 
 def setup(bot):

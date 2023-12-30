@@ -281,7 +281,7 @@ class IMGProfile(commands.Cog):
     # If the player does not exist in the database yet
     if not player.exists:
       await ctx.send(
-          f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+          f"{ctx.author} does not have a profile yet.\nPlease type `apo start`.")
       return
 
     # Fetch the user's next level progression data

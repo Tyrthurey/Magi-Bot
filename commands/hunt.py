@@ -4,10 +4,20 @@ import os
 import random
 import math
 from nextcord.ext import commands
+from nextcord import slash_command, SlashOption
+import nextcord
+from nextcord import Embed, ButtonStyle, ui
+from nextcord.ui import Button, View
+
+from functions.load_settings import get_embed_color
+from functions.using_command_failsafe import using_command_failsafe_instance as failsafes
+
 from supabase import Client, create_client
 from dotenv import load_dotenv
 from functions.item_write import item_write
 from functions.cooldown_manager import cooldown_manager_instance as cooldowns
+from classes.Player import Player
+from classes.Enemy import Enemy
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,417 +28,360 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
-async def hunting(ctx, action_id):
+class Hunting(commands.Cog):
 
-  command_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Actions').select('*').eq('id', action_id).
-      execute())
-  if not command_data_response.data:
-    await ctx.send("This command does not exist.")
-    return
+  def __init__(self, bot):
+    self.bot = bot
 
-  command_data = command_data_response.data[0]
-  command_name = command_data['name']
-  command_cd = command_data['normal_cd']
-  # command_patreon_cd = command_data['patreon_cd']
+  # New function to get location name
+  async def get_location_name(self, location_id):
+    location_response = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Areas').select('name').eq(
+            'id', location_id).execute())
+    return location_response.data[0][
+        'name'] if location_response.data else 'Unknown'
 
-  user_id = ctx.author.id
-  # command_name = ctx.command.name
-  cooldown_remaining = cooldowns.get_cooldown(user_id, command_name)
+  @slash_command(name="hunt", description="Hunt, kill, loot!")
+  async def hunt_slash(self, interaction: nextcord.Interaction):
+    await self.hunting(interaction)
 
-  if cooldown_remaining > 0:
-    await ctx.send(
-        f"This command is on cooldown. You can use it again in `{cooldown_remaining:.2f}` seconds."
-    )
-    return
+  @commands.command(name="hunt", aliases=["h"], help="Hunt, kill, loot!")
+  async def new_hunt(self, ctx):
+    await self.hunting(ctx)
 
-  cooldown = command_cd
+  async def hunting(self, interaction):
+    send_message = interaction
+    user_id = None
+    author = None
+    # If it's a text command, get the author from the context
+    if isinstance(interaction, commands.Context):
+      user_id = interaction.author.id
+      author = interaction.author
+      channel = interaction.channel
+      send_message = interaction.send
+    # If it's a slash command, get the author from the interaction
+    elif isinstance(interaction, nextcord.Interaction):
+      user_id = interaction.user.id
+      author = interaction.user
+      channel = interaction.channel
+      send_message = interaction.response.send_message
 
-  # Set the cooldown for the hunt command
-  cooldowns.set_cooldown(user_id, command_name, cooldown)
+    self.player = Player(author)
 
-  # Retrieve the current user data
-  user_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Players').select('*').eq(
-          'discord_id', user_id).execute())
-  if not user_data_response.data:
-    await ctx.send("You do not have a profile yet.")
-    return
+    embed_color = await get_embed_color(
+        None if interaction.guild is None else interaction.guild.id)
 
-  user_data = user_data_response.data[0]
-  current_health = user_data['health']
-  max_health = user_data['max_health']
-  current_exp = user_data['adventure_exp']
-  user_level = user_data['level']
-  user_gold = user_data['bal']
-  user_floor = user_data['floor']
-  max_user_floor = user_data['max_floor']
+    # If the player does not exist in the database yet
+    if not self.player.exists:
+      await send_message(
+          f"{author} does not have a profile yet.\nPlease type `apo start`.")
+      return
 
-  # Get the player's current floor
-  player_floor = user_data['floor']
+    # Check if the player is already in a command
+    if self.player.using_command:
+      using_command_failsafe = failsafes.get_last_used_command_time(
+          user_id, "general_failsafe")
+      if not using_command_failsafe > 0:
+        # await send_message("Failsafe activated! Commencing with command!")
+        self.player.using_command = False
+      else:
+        embed = nextcord.Embed(title="Already in a command...",
+                               color=embed_color)
 
-  # Load mobs list for the current floor and select a random mob
-  mob_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Mobs').select('*').eq(
-          'floor', player_floor).execute())
+        embed.add_field(
+            name="",
+            value=
+            "You're already in a command. Finish it before starting another.\n"
+            f"Failsafe will activate in `{using_command_failsafe:.0f}` seconds if you're stuck."
+        )
 
-  mobs_list = mob_data_response.data if mob_data_response.data else []
-  if not mobs_list:
-    await ctx.send(f"No creatures to hunt on floor {player_floor}.")
-    return
+        await send_message(embed=embed)
+        return
 
-  selected_mob = random.choice(
-      mobs_list)  # Randomly select a mob from the correct floor
+    failsafes.set_last_used_command_time(self.player.user_id, "hunt", 60)
+    failsafes.set_last_used_command_time(self.player.user_id,
+                                         "general_failsafe", 70)
 
-  mob_name = f"{selected_mob['mob_displayname']}"
+    action_id = 1
 
-  # Retrieve the mob stats
-  mob_atk = selected_mob['atk']
-  mob_def = selected_mob['def']
-  mob_magic = selected_mob['magic']
-  mob_magic_def = selected_mob['magic_def']
-  revenge = selected_mob['revenge']
-  total_mob_stats = mob_atk + mob_def + mob_magic + mob_magic_def
+    command_data_response = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Actions').select('*').eq(
+            'id', action_id).execute())
 
-  # Retrieve the player stats
-  player_atk = user_data['atk']
-  player_def = user_data['def']
-  player_magic = user_data['magic']
-  player_magic_def = user_data['magic_def']
-  total_player_stats = player_atk + player_def + player_magic + player_magic_def
+    if not command_data_response.data:
+      await send_message("This command does not exist.")
+      return
 
-  # Scale damage taken based on the ratio between player's stats and mob's stats
-  stat_ratio = total_player_stats / total_mob_stats
+    command_data = command_data_response.data[0]
+    command_name = command_data['name']
+    command_cd = command_data['normal_cd']
+    # command_patreon_cd = command_data['patreon_cd']
 
-  revenge_chance = 0
-  revenge = False
+    # command_name = ctx.command.name
+    cooldown_remaining = cooldowns.get_cooldown(user_id, command_name)
 
-  if stat_ratio >= 5:
-    # When player's stats are five times or more than the mob's stats
-    revenge_chance = 0  # 0.05% chance for revenge
-    health_loss = 0
+    if cooldown_remaining > 0:
+      embed = nextcord.Embed(
+          title=f"Command on Cooldown. Wait {cooldown_remaining:.0f}s...",
+          color=embed_color)
 
-  elif stat_ratio >= 3:
-    # Player's stats are triple or more than the mob's stats, so no damage is taken
-    health_loss = 0
-
-  elif stat_ratio > 1:
-    # If player's stats are greater than the mob's but less than triple
-    # Scale damage from 0% at triple player's stats to 50% at equal stats
-    health_loss = math.floor((2 - (stat_ratio / 3)) * 0.5 * max_health)
-
-  elif stat_ratio == 1:
-    # If player's stats are equal to the mob's stats
-    health_loss = math.floor(0.5 * max_health)
-
-  elif stat_ratio > 1 / 3:
-    # If mob's stats are greater than the player's but less than triple
-    # Scale damage from 50% at equal stats to 100% at triple mob's stats
-    health_loss = math.floor((1 + (1 - (stat_ratio * 3)) * 0.5) * max_health)
-
-  else:
-    # Mob's stats are triple or more than the player's stats, player takes full health as damage
-    health_loss = max_health
-
-  # Calculate the health reduction and gold reward
-  if user_floor < max_user_floor:
-    health_loss = math.floor(health_loss * (user_floor + 1))
-    gold_reward = random.randint(10, 40) - 10 * (user_floor)
-    if gold_reward < 0:
-      gold_reward = 0
-  else:
-    gold_reward = random.randint(10, 40)
-
-  # Check for revenge chance
-  if random.random() < revenge_chance and revenge:
-    # If revenge triggers, user dies
-    health_loss = max_health
-    revenge = True
-
-  new_health = current_health - health_loss
-
-  # Check if the user "dies"
-  if new_health <= 0:
-    new_health = max_health  # Reset health to max if died
-    new_level = max(1, user_level - 1)  # Ensure level does not go below 1
-
-    level_change = 0 if new_level == 1 else 1
-
-    new_exp = 0
-    gold_loss = random.randint(10, 30)
-    user_gold = max(0, user_gold - math.floor(
-        gold_loss / 100 * user_gold))  # Ensure gold does not go below 0
-    lost_atk = max(1, user_data['atk'] - 1)
-    lost_def = max(1, user_data['def'] - 1)
-    lost_magic = max(1, user_data['magic'] - 1)
-    lost_magic_def = max(1, user_data['magic_def'] - 1)
-    lost_max_health = max(10, max_health - 5)
-
-    # Update the player's health, level, adventure_exp, and gold in the database
-    supabase.table('Players').update({
-        'health': new_health,
-        'level': new_level,
-        'adventure_exp': new_exp,
-        'bal': user_gold,
-        'atk': lost_atk,
-        'def': lost_def,
-        'magic': lost_magic,
-        'magic_def': lost_magic_def,
-        'max_health': lost_max_health
-    }).eq('discord_id', user_id).execute()
-
-    revengemessage1 = (
-        f"**{ctx.author}** DOES UNSPEAKABLE THINGS to the poor {mob_name}-\nWAIT WHAT??? \nTHE {mob_name} SURPRISES **{ctx.author}** and **TAKES REVENGE!!!!!**\n"
-        if revenge else "")
-
-    diedmessage1 = (
-        f"**{ctx.author.display_name}** WAS ABSOLUTELY DESTROYED by a {mob_name} that had TRIPLE THEIR STATS!!!\n"
-        if stat_ratio <= 1 / 3 else "")
-
-    diedmessage2 = (f"**{ctx.author}** couldn\'t handle a {mob_name}. "
-                    if stat_ratio > 1 / 3 else "")
-
-    lostrewardsmsg = (
-        f"**{ctx.author}** lost all rewards, including `{level_change}` level and `{gold_loss}`% of their gold."
-        if level_change > 0 else
-        f"**{ctx.author}** lost all rewards, including their experience towards the next level and `{gold_loss}`% of their gold."
-    )
-
-    # Inform the user that they "died"
-    await ctx.send(f"**{ctx.author}'s** Total Stats: `{total_player_stats}`\n"
-                   f"{mob_name}'s Total Stats: `{total_mob_stats}`\n"
-                   f"{revengemessage1}"
-                   f"{diedmessage1}"
-                   f"{diedmessage2}"
-                   f"They got hit for `{health_loss}` HP and died.\n"
-                   f"{lostrewardsmsg}")
-    return
-  else:
-    # Calculate the experience gained
-    additional_exp = random.randint(10, 30)
-    new_exp = current_exp + additional_exp
-
-    # Initialize stat increases to 0
-    additional_atk = 0
-    additional_def = 0
-    additional_magic = 0
-    additional_max_health = 0
-
-    # Fetch level progression data from Supabase
-    level_progression_response = await asyncio.get_event_loop(
-    ).run_in_executor(
-        None, lambda: supabase.table('LevelProgression').select('*').execute())
-
-    level_progression_data = {
-        str(level['level']): level
-        for level in level_progression_response.data
-    }
-
-    # Check for level up
-    needed_exp_for_next_level = level_progression_data.get(
-        str(user_level + 1), {}).get('total_level_exp', float('inf'))
-    level_up = new_exp >= needed_exp_for_next_level
-
-    # Determine if an item is dropped
-    drop_chance = selected_mob['drop_chance']
-    drop_roll = random.randint(1, 100)  # Roll a number between 1 and 100
-    item_dropped = drop_roll <= drop_chance  # Determine if the roll is within the drop chance
-
-    # If an item is dropped, add it to the player's inventory
-    if item_dropped:
-      dropped_item_id = selected_mob['drop_item_id']
-      await item_write(user_id, dropped_item_id,
-                       1)  # Amount is 1 for the dropped item
-
-    if level_up:
-      new_level = user_level + 1
-      new_exp -= needed_exp_for_next_level  # Reset exp to 0 for next level
-      # Increase stats
-      additional_atk = 1
-      additional_def = 1
-      additional_magic = 1
-      additional_magic_def = 1
-      additional_max_health = 5
-      new_max_health = max_health + additional_max_health
-
-    # Update the player's health, adventure_exp, and gold in the database
-    supabase.table('Players').update({
-        'health':
-        max(1, new_health),  # Ensure health does not go below 1
-        'adventure_exp':
-        new_exp,
-        'level':
-        new_level if level_up else user_level,
-        'bal':
-        user_gold + gold_reward,
-        # Only update these if there's a level up
-        **({
-            'atk': user_data['atk'] + additional_atk,
-            'def': user_data['def'] + additional_def,
-            'magic': user_data['magic'] + additional_magic,
-            'magic_def': user_data['magic_def'] + additional_magic_def,
-            'max_health': new_max_health
-        } if level_up else {})
-    }).eq('discord_id', user_id).execute()
-
-    # Now send a message to the user with the outcome of the hunt
-    # Including whether an item was dropped and which mob was encountered
-    item_name = "nothing"
-    if item_dropped:
-      # Fetch the item's display name from Items table
-      item_response = await asyncio.get_event_loop().run_in_executor(
-          None, lambda: supabase.table('Items').select('item_displayname').eq(
-              'item_id', dropped_item_id).execute())
-      if item_response.data:
-        item_name = item_response.data[0]['item_displayname'].lower()
-
-    # Message templates
-    message2_templates = [
-        f"The {mob_name} never stood a chance against **{ctx.author}**'s DOUBLE TROUBLE ATTACK!!!",
-        f"With TWICE the power, **{ctx.author}** sends the {mob_name} flying into next week!!",
-        f"**{ctx.author}**'s power level is OVER 9000, annihilating the {mob_name} with DOUBLE FORCE!!!",
-        f"The earth quakes as **{ctx.author}** unleashes a DUAL-WIELD SMASH on the {mob_name}!!!",
-        f"Watch out! **{ctx.author}**'s DOUBLE DRAGON STRIKE turns the {mob_name} into stardust!!",
-        f"It's a one-hit K.O.! **{ctx.author}**'s TWIN FIST FURY decimates the {mob_name}!!",
-        f"**{ctx.author}** channels DOUBLE SPIRIT ENERGY and obliterates the {mob_name}!!!",
-        f"With a TWOFOLD SLASH, **{ctx.author}** cuts the {mob_name} down to size!!",
-        f"**{ctx.author}**'s DOUBLE DASH DANCE leaves the {mob_name} in a dizzy daze!!!",
-        f"In a flash, **{ctx.author}**'s TWIN TORNADO TECHNIQUE whirls the {mob_name} away!!!"
-    ]
-
-    message3_templates = [
-        f"**{ctx.author}** ABSOLUTELY DECIMATED a {mob_name} by having TRIPLE stats!?! \n",
-        f"**{ctx.author}** triples the terror with a TRI-FORCE TAKEDOWN on the {mob_name}!!!\n",
-        f"THREE TIMES THE MIGHT! **{ctx.author}** launches a TRIPLE THUNDER STRIKE on the {mob_name}!!\n",
-        f"**{ctx.author}** summons THREE DRAGONS OF DOOM to devour the {mob_name}!!\n",
-        f"It's a TRIPLE TROUBLE TRAMPLE! **{ctx.author}** stomps the {mob_name} into oblivion!!!\n",
-        f"With TRIPLE SWORD SYMPHONY, **{ctx.author}** slices the {mob_name} into cosmic confetti!!\n",
-        f"**{ctx.author}**'s TRIPLE ENERGY ECLIPSE blasts the {mob_name} into another dimension!!\n",
-        f"In an epic showdown, **{ctx.author}**'s TRI-BEAM BLAST vaporizes the {mob_name}!!!\n",
-        f"**{ctx.author}** performs a TRIPLE SPIRIT SHOT, sending the {mob_name} to the shadow realm!!\n",
-        f"THREE-HEADED HYDRA HAVOC! **{ctx.author}**'s attack leaves the {mob_name} in ruins!!\n",
-        f"**{ctx.author}** unleashes a TRIPLE WIND WHIRLWIND, sweeping the {mob_name} off their feet!!\n"
-    ]
-
-    message4_templates = [
-        f"QUAD DAMAGE! **{ctx.author}**'s FOUR-FOLD FURY flattens the {mob_name}!!!\n",
-        f"In a blaze of glory, **{ctx.author}**'s QUADRUPLE QUASAR QUEST incinerates the {mob_name}!!!\n",
-        f"**{ctx.author}**'s FOUR HORSEMEN CHARGE tramples the {mob_name} into dust!!!\n",
-        f"With a QUADRUPLE KAMEHAMEHA, **{ctx.author}** blasts the {mob_name} to the next galaxy!!\n",
-        f"QUAD-LOCKED! **{ctx.author}** locks the {mob_name} in a four-dimensional prison!!!\n",
-        f"FOUR-FISTED FRENZY! **{ctx.author}** pummels the {mob_name} with unstoppable force!!\n",
-        f"The {mob_name} is caught in **{ctx.author}**'s QUADRUPLE SPIRAL SLASH vortex!!!\n",
-        f"**{ctx.author}** executes a PERFECT QUADRUPLE COMBO, sending the {mob_name} to oblivion!!\n",
-        f"QUADRUPLE CLONE CATASTROPHE! **{ctx.author}**'s clones overwhelm the {mob_name}!!\n",
-        f"In a flash of light, **{ctx.author}**'s QUADRA DRAGON DANCE devours the {mob_name}!!\n",
-    ]
-
-    message2_template = random.choice(message2_templates)
-    message3_template = random.choice(message3_templates)
-    message4_template = random.choice(message4_templates)
-
-    message1 = (
-        f"**{ctx.author}** BULLIED THE :broken_heart: HEARTBROKEN {mob_name} SO HARD THEIR HEART STOPPED DUE TO THEIR ***OCTUPLE STATS***!!!!?!?!?!?!?! \n"
-        if stat_ratio >= 8 else
-        f"**{ctx.author}** made {mob_name} happy ONLY TO DESTROY THEIR WHOLE LIFE AND MARRIAGE :broken_heart: due to having ***SEPTUPLE*** the stats!!!!????????? \n"
-        if stat_ratio >= 7 else
-        f"**{ctx.author}** **DESTROYS EVERYTHING** THE {mob_name} LOVES by having ***SEXTUPLE*** their stats!!!!???? \n"
-        if stat_ratio >= 6 else
-        f"**{ctx.author}** DOES UNSPEAKABLE THINGS to the poor {mob_name} simply by having ***PENTUPLE*** the stats!!!! \n"
-        if stat_ratio >= 5 else
-        message4_template if stat_ratio >= 4 else message3_template
-        if stat_ratio >= 3 else f"**{ctx.author}** killed a {mob_name}! \n")
-
-    message2 = (
-        f"**{ctx.author}** BULLIED THE :broken_heart: HEARTBROKEN {mob_name} SO HARD THEIR HEART STOPPED DUE TO THEIR ***OCTAPLE STATS***!!!!?!?!?!?!?! \n"
-        if stat_ratio >= 8 else
-        f"**{ctx.author}** made {mob_name} happy ONLY TO DESTROY THEIR WHOLE LIFE AND :broken_heart: MARRIAGE due to having ***SEPTUPLE*** the stats!!!!????????? \n"
-        if stat_ratio >= 7 else
-        f"**{ctx.author}** **DESTROYS EVERYTHING** THE {mob_name} LOVES by having ***SEXTUPLE*** their stats!!!!???? \n"
-        if stat_ratio >= 6 else
-        f"**{ctx.author}** DOES UNSPEAKABLE THINGS to the poor {mob_name} simply by having ***PENTUPLE*** the stats!!!! \n"
-        if stat_ratio >= 5 else
-        message4_template if stat_ratio >= 4 else message3_template
-        if stat_ratio >= 3 else f"**{ctx.author}** killed a {mob_name}! \n")
-
-    # Inform the user of the outcome of the hunt
-    if level_up:
-      await ctx.send(
-          f"**{ctx.author}'s ** Total Stats: `{total_player_stats}`\n"
-          f"{mob_name}'s Total Stats: `{total_mob_stats}`\n"
-          f'{message1}'
-          f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
-          f"Lost `{health_loss}`HP. Current Health: `{max(1, new_health)}/{new_max_health}`HP. \n"
-          f":arrow_up: Level Up to lvl `{new_level}`! New Stats: ATK: `{user_data['atk'] + additional_atk}`, "
-          f"DEF: `{user_data['def'] + additional_def}`, MAGIC: `{user_data['magic'] + additional_magic}`, "
-          f"MAGIC DEF: `{user_data['magic_def'] + additional_magic_def}`, "
-          f"Health: `{new_max_health}`HP!\n"
-          f"{f'**{ctx.author}** got `1` {item_name}' if item_name!='nothing' else ''}"
-          f"```HUNT STILL WORKS BUT PROFILE IS NEW DATA, you can still farm exp tho just use ::lb\nAlso do ::get_title for a sweet title :P```"
+      embed.add_field(
+          name="",
+          value=
+          f"Tired of waiting? You can help us out by subscribing to our [Patreon](https://www.patreon.com/RCJoshua) for a reduced cooldown!\n*(COMING SOON - NOT YET IMPLEMENTED)*"
       )
+
+      await send_message(embed=embed)
+      return
+
+    cooldown = command_cd
+
+    # Set the cooldown for the hunt command
+    cooldowns.set_cooldown(user_id, command_name, cooldown)
+
+    self.player.set_using_command(True)
+    self.player.combat_log = []
+
+    mob_data_response = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Mobs').select('*').eq(
+            'area', self.player.location).execute())
+
+    location = self.player.location
+    location_name = await self.get_location_name(location)
+
+    mobs_list = mob_data_response.data if mob_data_response.data else []
+    if not mobs_list:
+      await send_message(f"No creatures to hunt in {location_name}.")
+      return
+
+    # Select a mob based on appearance chance
+    appear_chances = [mob['appear_chance'] for mob in mobs_list]
+    print("\n-=-=-=-=-=-=-=-=-=-=-=-=-\nAPPEAR CHANCES: ", appear_chances)
+    total_chance = sum(appear_chances)
+    roll = random.uniform(0.001, total_chance)
+    print("-=-=-=-=-=-=-=-=-=-=-=-=-\nROLL: ", roll,
+          "\n-=-=-=-=-=-=-=-=-=-=-=-=-\n")
+    current = 0
+    # Sort mobs by appear chance, smallest to largest
+    mobs_list.sort(key=lambda mob: mob['appear_chance'])
+    equal_chance = all(mob['appear_chance'] == mobs_list[0]['appear_chance']
+                       for mob in mobs_list)
+
+    if equal_chance:
+      selected_mob = random.choice(mobs_list)
     else:
-      await ctx.send(
-          f"**{ctx.author}'s ** Total Stats: `{total_player_stats}`\n"
-          f"{mob_name}'s Total Stats: `{total_mob_stats}`\n"
-          f"{message2}"
-          f"Gained `{additional_exp}`EXP, and `{gold_reward}` gold! \n"
-          f"Lost `{health_loss}`HP. Current Health: `{max(1, new_health)}/{max_health}`HP.\n"
-          f"{f'**{ctx.author}** got `1` {item_name}' if item_name!='nothing' else ''}"
-          f"```HUNT STILL WORKS BUT PROFILE IS NEW DATA, you can still farm exp tho just use ::lb```"
+      for mob in mobs_list:
+        current += mob['appear_chance']
+        if roll <= current:
+          selected_mob = mob
+          break
+
+    mob_id = selected_mob['id']
+    mob_exp = selected_mob['exp']
+    mob_gold = selected_mob['gold_drop']
+
+    low_exp, high_exp = map(int, mob_exp)
+    low_gold, high_gold = map(int, mob_gold)
+
+    # Initialize Enemy with mob_id and other required parameters (you may need to adjust this per your Enemy class)
+    enemy = Enemy(mob_id)
+
+    pl_initiative = random.randint(1,
+                                   20) + math.floor(self.player.luck / 5 + 1)
+    mob_initiative = random.randint(5, 20)
+    first = 'player'
+    mob_damage = 0
+    player_damage = 0
+    level_up = False
+    player_win = False
+
+    if pl_initiative > mob_initiative:
+      first = 'player'
+    elif pl_initiative < mob_initiative:
+      first = 'mob'
+    else:
+      first = 'tie'
+
+    if first == 'player':
+      mob_damage = self.player.melee_attack(enemy)
+      print(
+          f"{self.player.name} attacks {enemy.name} for {mob_damage} damage!")
+      self.player.combat_log.append(f"**{self.player.name}** attacks first!")
+
+      if enemy.health > 0:
+        player_damage = enemy.attack(self.player)
+        print(
+            f"{enemy.name} attacks {self.player.name} for {player_damage} damage!"
+        )
+    elif first == 'mob':
+      player_damage = enemy.attack(self.player)
+      print(
+          f"{enemy.name} attacks {self.player.name} for {player_damage} damage!"
+      )
+      self.player.combat_log.append(f"{enemy.name} attacks first!")
+    else:
+      print(
+          f"{self.player.name} and {enemy.name} weren't looking well and crashed into each other!"
+      )
+      self.player.combat_log.append(
+          f"**{self.player.name}** and {enemy.name} weren't looking well and crashed into each other!"
+      )
+      self.player.health = self.player.health - 10
+      enemy.health = enemy.health - 10
+      mob_damage = mob_damage + 10
+      player_damage = player_damage + 10
+
+    while enemy.health > 0 and self.player.health > 0:
+      mob_damage = mob_damage + self.player.melee_attack(enemy)
+      print(
+          f"{self.player.name} attacks {enemy.name} for {mob_damage} damage!")
+
+      player_damage = player_damage + enemy.attack(self.player)
+      print(
+          f"{enemy.name} attacks {self.player.name} for {player_damage} damage!"
       )
 
+    if self.player.health > 0:
+      self.player.combat_log.append(
+          f"**{self.player.name}** did `{mob_damage}` damage!")
+      self.player.combat_log.append(
+          f"{enemy.name} did `{player_damage}` damage!")
+      self.player.combat_log.append(f"**{self.player.name}** has won!")
+      print(f"{self.player.name} killed {enemy.name}!")
+      self.player.combat_log.append(
+          f"**{self.player.name}** killed {enemy.name}!")
 
-# Command function
-@commands.command(name="hunt",
-                  aliases=["h", "hunting"],
-                  help="Go on a hunting adventure and gain experience.")
-async def hunt(ctx):
-  # Retrieve the current user data
-  user_data_response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Players').select('using_command').eq(
-          'discord_id', ctx.author.id).execute())
-  if not user_data_response.data:
-    await ctx.send("You do not have a profile yet.")
-    return
+      exp_reward = math.floor(random.randint(low_exp, high_exp) * 0.7)
+      self.player.adventure_exp += exp_reward
 
-  user_data = user_data_response.data[0]
-  using_command = user_data['using_command']
-  # Check if the player is already in a command
-  if using_command:
-    await ctx.send(
-        "You're already in a command. Finish it before starting another.")
-    return
+      gold_reward = math.floor(random.randint(low_gold, high_gold) * 0.7)
+      self.player.bal += gold_reward
 
-  await ctx.send(
-      "Use ::`adventure` from now on! \nHunt is getting its guts reworked, so please wait a few days."
-  )
-  # await hunting(ctx, 1)
+      # Fetch level progression data from Supabase
+      level_progression_response = await asyncio.get_event_loop(
+      ).run_in_executor(
+          None,
+          lambda: supabase.table('LevelProgression').select('*').execute())
+
+      level_progression_data = {
+          str(level['level']): level
+          for level in level_progression_response.data
+      }
+
+      # Check for level up
+      needed_exp_for_next_level = level_progression_data.get(
+          str(self.player.level + 1), {}).get('total_level_exp', float('inf'))
+      level_up = self.player.adventure_exp >= needed_exp_for_next_level
+
+      if level_up:
+        self.player.level += 1
+        self.player.adventure_exp = 0
+        self.player.free_points += 5
+
+      # Determine if an item is dropped
+      drop_chance = enemy.drop_chance
+      drop_roll = random.randint(1, 100)  # Roll a number between 1 and 100
+      item_dropped = drop_roll <= drop_chance  # Determine if the roll is within the drop chance
+
+      # Debug stuff
+      print("------------------------------------------------------------")
+      print("Drop chance: ")
+      print(drop_chance)
+      print("------------------------------------------------------------")
+      print("Drop roll: ")
+      print(drop_roll)
+      print("------------------------------------------------------------")
+      print("Item dropped: ")
+      print(item_dropped)
+      print("------------------------------------------------------------")
+
+      # If an item is dropped, add it to the player's inventory
+      if item_dropped:
+        dropped_item_id = enemy.drop_item_id
+        await item_write(user_id, dropped_item_id, 1)  # Amount is 1
+
+      # Now send a message to the user with the outcome of the hunt
+      # Including whether an item was dropped and which mob was encountered
+      item_name = "nothing"
+      if item_dropped:
+        # Fetch the item's display name from Items table
+        item_response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: supabase.table('Items').select('item_displayname').eq(
+                'item_id', dropped_item_id).execute())
+        if item_response.data:
+          item_name = item_response.data[0]['item_displayname'].lower()
+
+      # Debug stuff
+      print("------------------------------------------------------------")
+      print("Item name: ")
+      print(item_name)
+      print("------------------------------------------------------------")
+
+      player_win = True
+
+    else:
+      self.player.combat_log.append(
+          f"**{self.player.name}** did `{mob_damage}` damage!")
+      self.player.combat_log.append(
+          f"{enemy.name} did `{player_damage}` damage!")
+      self.player.combat_log.append(f"**{self.player.name}** died...")
+      print(f"{enemy.name} killed **{self.player.name}**!")
+      self.player.combat_log.append(
+          f"{enemy.name} has defeated **{self.player.name}**!")
+      self.player.adventure_exp = 0
+
+      gold_loss = random.randint(10, 30)
+      self.player.bal = max(
+          0, self.player.bal - math.floor(gold_loss / 100 * self.player.bal))
+      if self.player.bal < 20:
+        self.player.bal = 20
+      self.player.health = self.player.max_health
+      self.player.deaths = self.player.deaths + 1
+
+      player_win = False
+
+    self.player.save_data()
+
+    embed = nextcord.Embed(title="Hunting...", color=embed_color)
+
+    embed.add_field(
+        name="", value=f"**{self.player.name}** encountered a {enemy.name}!\n")
+
+    embed.add_field(name="------------------------------",
+                    value="\n".join(self.player.combat_log[-6:]),
+                    inline=False)  # Only show the last 4 actions
+
+    if player_win:
+      embed.add_field(
+          name="------------------------------",
+          value=f"Gained `{exp_reward}` <:EXP:1182800499037196418>\n"
+          f"Gained `{gold_reward}` <:apocalypse_coin:1182666655420125319>\n"
+          f"Current Health: `{self.player.health}/{self.player.max_health}` <:life:1175932745256554506> \n"
+          f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}\n"
+          f"{f'<a:LV_UP:1182650004486242344> Level Up to Lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n",
+          inline=False)
+    else:
+      embed.add_field(
+          name="------------------------------",
+          value=
+          f"**{self.player.name}** lost all rewards, including their experience towards the next level and `{gold_loss}`% of their gold.\n"
+          f"Deaths: `{self.player.deaths}`",
+          inline=False)
+
+    await send_message(embed=embed)
+    self.player.combat_log = []
+    self.player.set_using_command(False)
+
+    # Instead of `ctx.send`, use `send_message`
+    # Instead of `ctx.author`, use the `author` variable
+
+    # When sending responses for slash commands, use `await interaction.response.send_message` aka "send_message()"
+    # For follow-up messages, use `await interaction.followup.send`
+
+    # Example:
+    # await send_message("This is a response that works for both text and slash commands.")
 
 
-# # Command function
-# @commands.command(name="scout",
-#                   aliases=["s", "scouting"],
-#                   help="Go on a scouting adventure and gain experience.")
-# async def battle(ctx, 3):
-#   await battle(ctx, 3)
-
-
-# Error handler
-async def hunting_error(ctx, error):
-  if isinstance(error, commands.CommandOnCooldown):
-    await ctx.send(
-        f"This command is on cooldown. You can use it again in `{error.retry_after:.2f}` seconds."
-    )
-  else:
-    await ctx.send(
-        f"An error occurred: {error}\nWas this a mistake? Type `::bug <description>` to report it!"
-    )
-
-
-# Assign the error handler to the command
-hunt.error(hunting_error)
-
-
-# Export the command function to be imported in main.py
 def setup(bot):
-  bot.add_command(hunt)
+  bot.add_cog(Hunting(bot))

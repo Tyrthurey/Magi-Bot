@@ -53,7 +53,7 @@ class GetTitle(commands.Cog):
           None, lambda: supabase.table('Inventory').insert(
               updated_inventory_data).execute())
 
-    await ctx.send("You've been given a new title! \nUse `::titles` to see your titles.")
+    await ctx.send("You've been given a new title! \nUse `apo titles` to see your titles.")
 
 
 def setup(bot):

@@ -69,6 +69,8 @@ class Player(Combat_Entity):
     self.adv_tuturial = data.get('adv_tutorial', False)
     self.floor_tutorial = data.get('floor_tutorial', True)
     self.is_defending = False
+    self.combat_log = []
+    self.titles_list = []
 
     # self.endurance = data.get('endurance', 5)
     # self.intelligence = data.get('intelligence', 5)
@@ -157,7 +159,7 @@ class Player(Combat_Entity):
         'times_fled': self.times_fled,
         'adventure_exp': self.adventure_exp,
         'bal': self.bal,
-        'dung_tutorial': self.dung_tutorial,
+        # 'dung_tutorial': self.dung_tutorial,
         'adv_tutorial': self.adv_tuturial
     }).eq('discord_id', self.discord_user.id).execute()
     if not response:

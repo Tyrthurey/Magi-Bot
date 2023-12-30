@@ -221,5 +221,5 @@ class GetAchievement():
       await ctx.send(embed=embed)
     else:
       await ctx.send(
-          "There was an error fetching your achievement. Please contact support (use `::bug`)."
+          "There was an error fetching your achievement. Please contact support (use `apo bug`)."
       )

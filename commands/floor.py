@@ -18,7 +18,7 @@ async def floor(ctx, floor_num: int):
     return
 
   if not floor_num:
-    await ctx.send("Specify a floor number. Usage: `::floor <number>`")
+    await ctx.send("Specify a floor number. Usage: `apo floor <number>`")
     return
 
   player.set_using_command(True)

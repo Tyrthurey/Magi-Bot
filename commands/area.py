@@ -73,7 +73,7 @@ class Area(commands.Cog):
             'discord_id', user_id).execute())
     if not user_data_response.data:
       await send_message(
-          f"{author} does not have a profile yet.\nPlease type `::start`.")
+          f"{author} does not have a profile yet.\nPlease type `apo start`.")
       return
 
     user_data = user_data_response.data[0]

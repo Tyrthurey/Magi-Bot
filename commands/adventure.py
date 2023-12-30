@@ -52,7 +52,7 @@ async def adventure(ctx):
 
   if not player.exists:
     await ctx.send(
-        f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+        f"{ctx.author} does not have a profile yet.\nPlease type `apo start`.")
     return
 
   # Check if the player is already in a command

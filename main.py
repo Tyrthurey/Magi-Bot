@@ -23,6 +23,8 @@ from keep_alive import keep_alive
 import math
 import sys
 from pathlib import Path
+from nextcord.ext.commands import CommandNotFound
+from difflib import get_close_matches
 
 # Add the directory containing the 'commands' package to sys.path
 commands_dir = Path(__file__).parent.resolve()
@@ -57,7 +59,6 @@ from commands.bug import setup as bug_setup
 from commands.dungeon import setup as dungeon_setup
 from commands.adventure import setup as adv_setup
 from commands.floor import setup as floor_setup
-from commands.new_hunt import setup as new_hunt_setup
 
 load_dotenv()
 
@@ -93,7 +94,7 @@ async def save_settings(guild_id: int, new_settings):
       }).eq('server_id', guild_id).execute()
     else:
       # If there are no settings for this server, use default values and include the new settings
-      default_settings = {"embed_color": "green", "prefix": "::"}
+      default_settings = {"embed_color": "green", "prefix": "apo "}
       updated_settings = {**default_settings, **new_settings}
       # Insert the new record with the default settings merged with the new settings
       supabase.table('ServerSettings').insert({
@@ -119,12 +120,12 @@ async def on_ready():
   global level_progression_data
   global settings_cache
 
-  try:
-    supabase.table('Users').update({
-        'using_command': False
-    }).neq('discord_id', 0).execute()
-  except Exception as e:
-    print(f'An error occurred while resetting using_command field: {e}')
+  # try:
+  #   supabase.table('Users').update({
+  #       'using_command': False
+  #   }).neq('discord_id', 0).execute()
+  # except Exception as e:
+  #   print(f'An error occurred while resetting using_command field: {e}')
 
   print(f'Logged in as {bot.user.name}')
   # Loop through all the guilds the bot is a member of
@@ -193,18 +194,16 @@ class CalibrationView(nextcord.ui.View):
     try:
       print(self.user)
       await self.user.send(
-          "Test DM: Calibration successful! Welcome to the game, you are now ready."
-      )
-      await self.ctx.channel.send("DM sent successfully. You are ready to go!")
+          "Test DM: Calibration successful! You can now play freely!")
+      await self.ctx.channel.send("DM sent successfully!")
       await asyncio.get_event_loop().run_in_executor(
           None, lambda: supabase.table('Users').update({
-              'using_command': False,
               'open_dms': True
           }).eq('discord_id', self.user.id).execute())
       self.stop()
     except nextcord.HTTPException as e:
       if e.status == 403:  # Check if the error is a Forbidden error
-        if self.attempts < 2:
+        if self.attempts < 1:
           self.attempts += 1
           self.next_button.disabled = False  # Re-enable the button for retry
           await self.handle_admin_notification()
@@ -271,28 +270,35 @@ async def on_message(message):
     )
     return
 
-  if not message.content.startswith(prefix):
+  message.content = message.content.lower()
+
+  if not message.content.startswith(prefix.lower()):
     return
 
   response = await asyncio.get_event_loop().run_in_executor(
-      None, lambda: supabase.table('Users').select('open_dms').eq(
+      None, lambda: supabase.table('Users').select('*').eq(
           'discord_id', message.author.id).execute())
 
   if response.data:
     response = response.data[0]
 
     open_dms = response.get('open_dms', False)
+    main_tutorial = response.get('main_tutorial', False)
 
-    if not open_dms:
+    if main_tutorial:
+      await message.channel.send("Please finish the tutorial!!!")
+      return
+
+    if not open_dms and main_tutorial:
       await message.channel.send("Please calibrate your DMs first.")
       await message.channel.send(
           f"<@{message.author.id}> Please make sure you have DMs from server members open on this server, or invite the bot to a personal server and allow it to DM you from there. \n\n**Important notifications will be sent directly as DMs.**\n\n**Mobile:** Simply *long press* the server icon, tap *'More Options'*, and scroll down until you find *'Allow Direct Messages'*. Enable that. \n**Desktop:** https://i.imgur.com/PE797Rv.png"
       )
 
-      await asyncio.get_event_loop().run_in_executor(
-          None, lambda: supabase.table('Users').update({
-              'using_command': True
-          }).eq('discord_id', message.author.id).execute())
+      # await asyncio.get_event_loop().run_in_executor(
+      #     None, lambda: supabase.table('Users').update({
+      #         'using_command': True
+      #     }).eq('discord_id', message.author.id).execute())
 
       await message.channel.send(view=CalibrationView(message, message.author))
       return
@@ -338,6 +344,40 @@ async def on_interaction(interaction: nextcord.Interaction):
 # Remember to add a function to update the cache when settings change
 async def update_settings_cache(server_id, new_settings):
   update_settings_cache_here(server_id, new_settings)
+
+
+@bot.event
+async def on_command_error(ctx, error):
+  # Check if the command was not found
+  if isinstance(error, CommandNotFound):
+    # Get the invoked command
+    invoked_command = ctx.invoked_with
+
+    # Extract a list of all command names
+    command_names = [command.name for command in bot.commands]
+
+    # Find the closest match to the invoked command
+    closest_match = get_close_matches(invoked_command,
+                                      command_names,
+                                      n=1,
+                                      cutoff=0.6)
+
+    # If a close match was found
+    if closest_match:
+      # Ask user if they meant the closest matching command
+      await ctx.send(
+          f"Command '{invoked_command}' not found. Did you mean '{closest_match[0]}'?"
+      )
+    else:
+      prefix = await command_prefix(bot, ctx)
+      # If no close match, just inform the user the command was not found
+      await ctx.send(
+          f"Command '{invoked_command}' not found. Use `{prefix}help` for a list of commands."
+      )
+
+  # else:
+  #     # If the error is not CommandNotFound, handle other errors (existing error handling logic)
+  #     # ...
 
 
 @bot.command(name="lockdown",
@@ -406,17 +446,31 @@ async def start(ctx):
             "It is the system’s desire and hope that you will rise above the storm, find strength, and survive. \n\nGood luck!"
         ),
         nextcord.Embed(
-            title="System Information",
+            title="Profile Information",
             description=
-            "Use `::help` to find out which commands you can use. \nUse `::help <command>` (without the < >) to find out more about a specific command."
+            "After this tutorial, type `apo profile` to open up your character sheet.\nWithin it you will find your stats, which are **💪 STR**, **💨 DEX**, **❤️‍🔥 VIT**, **🧠SAV**, **🪄 MAG**, and **🍀 LUCK**.\n\nThese are your physical and mental stats. The **Free Points:** section indicates how many stat points you can allocate. \n\nEach stat contributes in some way. 💪STR, 🧠SAV and 🪄MAG all contribute to your attack power. 💨DEX and ❤️‍🔥VIT both contribute to your defense, which reduces the damage you take from enemy hits."
+        ),
+        nextcord.Embed(
+            title="Profile Customization",
+            description=
+            "Now, onto getting your character a face! If you type `apo player_settings`, or `apo psettings` for short, it will open a window giving you two options.\n\nYou can either use your Discord profile picture as your characters picture, or you can choose from a selection of different custom sprites for your character, as well as purchasable backgrounds from the gem shop (`apo gemshop`).\n\nAfter choosing your character and background, simply type `apo img_profile` or `apo ip` for short, and you'll be able to view your new character! It also shows all of the information within the `apo profile` page."
         )
         # Add more embeds as needed...
     ]
-    view = TutorialView(ctx, tutorial_embeds)
+    view = TutorialView(ctx, tutorial_embeds, bot)
     await ctx.send(content="Starting tutorial...",
                    embed=tutorial_embeds[0],
                    view=view)
     await view.tutorial_done.wait()  # Wait for the tutorial to finish
+
+    embed = nextcord.Embed(
+        color=nextcord.Color.green(),
+        title="System Information",
+        description=
+        "Hunt monsters using `apo hunt`, or adventure with `apo adventure`!\nBrowse the shop using `apo shop` and buy or sell using `apo buy <item>` or `apo sell <item>`!\nCheck your inventory using `apo inventory`!\n\nUse `apo help` to see all the commands you can use. \nUse `apo help <command>` (without the < >) to find out more about a specific command, and to see its aliases (aka for `apo hunt` it is `apo h`)."
+    )
+
+    await ctx.send(embed=embed)
 
     get_achievement_cog = GetAchievement(bot)
     await get_achievement_cog.get_achievement(ctx, ctx.author.id, 1)
@@ -428,7 +482,8 @@ async def start(ctx):
     await asyncio.get_event_loop().run_in_executor(
         None, lambda: supabase.table('Users').update({
             'using_command': False,
-            'open_dms': True
+            'open_dms': True,
+            'main_tutorial': False
         }).eq('discord_id', ctx.author.id).execute())
 
 
@@ -443,10 +498,11 @@ async def gif(ctx):
 
 
 @bot.slash_command(name="gif", description="Sends a random dog gif.")
-async def slash_gif(ctx):
+async def slash_gif(interaction: nextcord.Interaction):
   with open("gifs.json") as f:
     links = json.load(f)
-  await ctx.send(random.choice(links[ctx.invoked_with]))
+  random_word = random.choice(["feed", "play", "sleep", "gif"])
+  await interaction.response.send_message(random.choice(links[random_word]))
 
 
 class CustomIdModal(nextcord.ui.Modal):
@@ -509,7 +565,7 @@ async def settings_command(ctx):
   embed.add_field(
       name="Operation Channel",
       value=
-      f"Current operation channel is {operation_channel_name}\nUse `{bot_settings.get('prefix', '::')}setchannel <channel>` to change this.",
+      f"Current operation channel is {operation_channel_name}\nUse `{bot_settings.get('prefix', 'apo ')}setchannel <channel>` to change this.",
       inline=True)
   embed.add_field(name="Click the buttons below to change the settings.",
                   value="",
@@ -519,7 +575,7 @@ async def settings_command(ctx):
   async def change_prefix_callback(interaction: nextcord.Interaction):
     if interaction.user != ctx.author:
       await interaction.response.send_message(
-          "You are not authorized to change the settings. Is this a bug? Type `::bug <description>` to report it!",
+          f"You are not authorized to change the settings. Is this a bug? Type `{bot_settings.get('prefix', 'apo ')}bug <description>` to report it!",
           ephemeral=True)
       return
     modal = CustomIdModal(title="Change Prefix", guild_id=ctx.guild.id)
@@ -528,7 +584,7 @@ async def settings_command(ctx):
   async def change_color_callback(interaction: nextcord.Interaction):
     if interaction.user != ctx.author:
       await interaction.response.send_message(
-          "You are not authorized to change the settings. Is this a bug? Type `::bug <description>` to report it!",
+          f"You are not authorized to change the settings. Is this a bug? Type `{bot_settings.get('prefix', 'apo ')}bug <description>` to report it!",
           ephemeral=True)
       return
     modal = CustomIdModal(title="Change Embed Color", guild_id=ctx.guild.id)
@@ -555,7 +611,7 @@ async def settings_command(ctx):
 async def settings_command_error(ctx, error):
   if isinstance(error, commands.MissingPermissions):
     await ctx.send(
-        "You need administrator permissions to change the settings.\nIf you are in DMs, personal settings aren't implemented yet.\nIs this a bug? Type `::bug <description>` to report it!"
+        "You need administrator permissions to change the settings.\nIf you are in DMs, personal settings aren't implemented yet.\nIs this a bug? Type `apo bug <description>` to report it!"
     )
 
 
@@ -604,7 +660,7 @@ try:
 
   # Hunt command setup
   hunt_setup(bot)
-  new_hunt_setup(bot)
+  # new_hunt_setup(bot)
   shop_setup(bot)
   buy_setup(bot)
   hi_setup(bot)
@@ -639,6 +695,7 @@ try:
   bot.load_extension("commands.img_profile")
   bot.load_extension("commands.profile_settings")
   bot.load_extension("commands.recipes")
+  bot.load_extension("commands.daily")
 
   keep_alive()
 

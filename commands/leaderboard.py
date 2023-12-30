@@ -19,19 +19,19 @@ class Leaderboard(commands.Cog):
   def cog_unload(self):
     self.update_leaderboard.cancel()
 
-  @tasks.loop(minutes=5.0)
+  @tasks.loop(seconds=300.0)
   async def update_leaderboard(self):
+    print(f"{datetime.now()}: Updating leaderboard")
     # Query the database
-    results = supabase.table('Users').select('*').execute()
+    results = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Users').select('*').execute())
 
-    if results.data:
-      # Sort the players first by level in descending order, then by adventure_exp in descending order
-      sorted_data = sorted(results.data,
-                           key=lambda x: (-x['level'], -x['adventure_exp']))
-      sorted_data[:10]  # Return only the top 10 players
+    sorted_data = sorted(results.data,
+                         key=lambda x: (-x['level'], -x['adventure_exp']))
+    # # results = sorted_data[:10]  # Return only the top 10 players
 
     new_first_place_user_id = sorted_data[0]['discord_id']
-
+    # print(f"{datetime.now()}: First place user ID: {new_first_place_user_id}")
     await self.update_first_place(new_first_place_user_id)
 
   @update_leaderboard.before_loop
@@ -40,18 +40,18 @@ class Leaderboard(commands.Cog):
     await self.bot.wait_until_ready()
 
   async def update_first_place(self, new_first_place_user_id):
+    former_user_id = None
     # first_place_achievement_id = 12  # ID for the first place achievement
     print('------------------------------------------------------------')
     print('Current first place user ID:', Leaderboard.current_first_place)
     print('New first place user ID:', new_first_place_user_id)
     print('------------------------------------------------------------')
-
     if new_first_place_user_id != Leaderboard.current_first_place:
       if Leaderboard.current_first_place:
-
         former_user_id = Leaderboard.current_first_place
         former_user = await self.bot.fetch_user(former_user_id)
         if former_user:  # Check if the former user is valid
+          # Ensure the result of the async function is used by awaiting it
           await self.get_achievement.remove_achievement(former_user_id, 12)
         else:
           logging.error(
@@ -59,16 +59,22 @@ class Leaderboard(commands.Cog):
           )
       else:
         print("No first place. Probably a restart.")
-      Leaderboard.current_first_place = new_first_place_user_id
 
+      Leaderboard.current_first_place = new_first_place_user_id
+      print(Leaderboard.current_first_place)
+      print("Former user id:", former_user_id)
       new_user = await self.bot.fetch_user(new_first_place_user_id)
       if new_user and (former_user_id is not None):
+        # Ensure the result of the async function is used by awaiting it
         await self.get_achievement.get_dm_achievement(new_first_place_user_id,
                                                       12)
+        return
       else:
         logging.error(
-            f"Could not fetch new first place user with ID: {new_first_place_user_id}"
+            f"Former user {former_user_id} was none or new user {new_user} doesnt exist."
         )
+
+    print("done")
 
   @commands.command(name="leaderboard",
                     aliases=["lb"],
@@ -101,7 +107,8 @@ class Leaderboard(commands.Cog):
                      description="Displays the top players by level.")
   async def leaderboard_slash(self, interaction: nextcord.Interaction):
     # Query the database
-    results = supabase.table('Users').select('*').execute()
+    results = await asyncio.get_event_loop().run_in_executor(
+        None, lambda: supabase.table('Users').select('*').execute())
 
     if results.data:
       # Sort the players first by level in descending order, then by adventure_exp in descending order

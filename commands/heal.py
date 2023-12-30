@@ -33,7 +33,7 @@ class Heal(commands.Cog):
             'discord_id', ctx.author.id).execute())
     if not user_data_response.data:
       await ctx.send(
-          f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+          f"{ctx.author} does not have a profile yet.\nPlease type `apo start`.")
       return
     user_data = user_data_response.data[0]
 
@@ -57,7 +57,7 @@ class Heal(commands.Cog):
     # elif quantity.lower() == "all":
     #     heal_message = await self.heal_to_full(ctx)
     else:
-      heal_message = "Invalid command usage. Type `::heal <number>` or `::heal all`."
+      heal_message = "Invalid command usage. Type `apo heal <number>` or `apo heal all`."
 
     await ctx.send(heal_message)
 
@@ -163,7 +163,7 @@ class Heal(commands.Cog):
       else:
         return f"**{ctx.author}**, your health is already full."
     else:
-      return "You do not have a profile yet. Is this a bug? Type `::bug <description>` to report it!"
+      return "You do not have a profile yet. Is this a bug? Type `apo bug <description>` to report it!"
 
 
 def setup(bot):

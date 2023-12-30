@@ -24,7 +24,7 @@ supabase: Client = create_client(url, key)
 async def buying(ctx, *args):
   # Check if at least the item name is provided
   if not args:
-    await ctx.send("Usage: ::buy [item name] [amount]")
+    await ctx.send("Usage: `apo buy [item name] [amount]` (without the [])")
     return
 
   # Check if the last argument is an integer (the amount), and if not, default the amount to 1

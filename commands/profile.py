@@ -189,7 +189,7 @@ class StatView(View):
 
       # Set the footer to the bot's name and icon
       embed.set_footer(
-          text=f"{bot.user.name} - Help us improve! Use ::suggest <suggestion>",
+          text=f"{bot.user.name} - Help us improve! Use apo suggest <suggestion>",
           icon_url=bot.user.avatar.url)
       # Add fields to embed
       await interaction.message.edit(
@@ -246,13 +246,18 @@ class Profile(commands.Cog):
 
     # Create a Player instance for the user
     player = Player(user)
-    username = player.displayname if player.displayname != 'Default' else player.name
+    username = player.name
 
     # If the player does not exist in the database yet
     if not player.exists:
       await ctx.send(
-          f"{ctx.author} does not have a profile yet.\nPlease type `::start`.")
+          f"{ctx.author} does not have a profile yet.\nPlease type `apo start`.")
       return
+
+    if player.using_command:
+      await ctx.send(
+          "You are already in a command! Finish it first before doing anything else!"
+      )
 
     # Fetch the user's next level progression data
     level_progression_response = await bot.loop.run_in_executor(
@@ -349,7 +354,7 @@ class Profile(commands.Cog):
 
     # Set the footer to the bot's name and icon
     embed.set_footer(
-        text=f"{bot.user.name} - Help us improve! Use ::suggest <suggestion>",
+        text=f"{bot.user.name} - Help us improve! Use apo suggest <suggestion>",
         icon_url=bot.user.avatar.url)
 
     # Send the embed and store the view and message in the dictionary

@@ -33,7 +33,7 @@ bot = commands.Bot(command_prefix=command_prefix,
 async def selling(ctx, *args):
   # Check if at least the item name is provided
   if not args:
-    await ctx.send("Usage: ::sell [item name] <amount/all>")
+    await ctx.send("Usage: `apo sell [item name] <amount/all>` (without the [] and <>)")
     return
 
   # Check if the last argument is "all" (to sell all items), or an integer (the amount),

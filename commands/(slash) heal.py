@@ -34,7 +34,7 @@ class SlashHeal(commands.Cog):
             'discord_id', interaction.user.id).execute())
     if not user_data_response.data:
       await interaction.response.send_message(
-          f"{interaction.user} does not have a profile yet.\nPlease type `::start`."
+          f"{interaction.user} does not have a profile yet.\nPlease type `apo start`."
       )
       return
     user_data = user_data_response.data[0]
@@ -49,7 +49,7 @@ class SlashHeal(commands.Cog):
     # elif quantity.lower() == "all":
     #     heal_message = await self.heal_to_full(ctx)
     else:
-      heal_message = "Invalid command usage. Type `::heal <number>` or `::heal all`."
+      heal_message = "Invalid command usage. Type `apo heal <number>` or `apo heal all`."
     await interaction.response.send_message(heal_message)
 
   async def healing(self, interaction: nextcord.Interaction, quantity):
@@ -122,7 +122,7 @@ class SlashHeal(commands.Cog):
       else:
         return f"**{interaction.user}**, your health is already full."
     else:
-      return "You do not have a profile yet. Is this a bug? Type `::bug <description>` to report it!"
+      return "You do not have a profile yet. Is this a bug? Type `apo bug <description>` to report it!"
 
 
 def setup(bot):

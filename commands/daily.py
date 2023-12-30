@@ -15,23 +15,21 @@ import io
 import functools
 
 
-class Area(commands.Cog):
+class Daily(commands.Cog):
 
   def __init__(self, bot):
     self.bot = bot
 
-  @slash_command(name="command", description="Command information.")
+  @slash_command(name="daily", description="Claim your daily reward!")
   async def command_slash(self, interaction: nextcord.Interaction):
     await self.command(interaction)
 
-  @commands.command(name="command",
-                    aliases=["commands"],
-                    help="Command information.")
+  @commands.command(name="daily", help="Claim your daily reward!")
   async def command_text(self, ctx):
     await self.command(ctx)
 
   async def command(self, interaction):
-    send_message = interaction.response.send_message
+    send_message = interaction
     author = "Unknown"
     user_id = 0
     # If it's a text command, get the author from the context
@@ -66,11 +64,7 @@ class Area(commands.Cog):
         )
         return
 
-    failsafes.set_last_used_command_time(self.player.user_id, "hunt", 60)
-    failsafes.set_last_used_command_time(self.player.user_id,
-                                         "general_failsafe", 70)
-
-    action_id = 1
+    action_id = 5
 
     command_data_response = await asyncio.get_event_loop().run_in_executor(
         None, lambda: supabase.table('Actions').select('*').eq(
@@ -88,9 +82,22 @@ class Area(commands.Cog):
     # command_name = ctx.command.name
     cooldown_remaining = cooldowns.get_cooldown(user_id, command_name)
 
+    minutes, seconds = divmod(int(cooldown_remaining), 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+
+    if days > 0:
+      cooldown_message = f"{days}d {hours}h {minutes}m {seconds}s"
+    elif hours > 0:
+      cooldown_message = f"{hours}h {minutes}m {seconds}s"
+    elif minutes > 0:
+      cooldown_message = f"{minutes}m {seconds}s"
+    else:
+      cooldown_message = f"{seconds}s"
+
     if cooldown_remaining > 0:
       embed = nextcord.Embed(
-          title=f"Command on Cooldown. Wait {cooldown_remaining:.2f}s...",
+          title=f"Command on Cooldown. Wait {cooldown_message}s...",
           color=embed_color)
 
       embed.add_field(
@@ -107,6 +114,8 @@ class Area(commands.Cog):
     # Set the cooldown for the hunt command
     cooldowns.set_cooldown(user_id, command_name, cooldown)
 
+    await send_message(f"You used the `{command_name}` command.")
+
     # Instead of `ctx.send`, use `send_message`
     # Instead of `ctx.author`, use the `author` variable
 
@@ -118,4 +127,4 @@ class Area(commands.Cog):
 
 
 def setup(bot):
-  bot.add_cog(Area(bot))
+  bot.add_cog(Daily(bot))

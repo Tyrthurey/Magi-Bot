@@ -9,6 +9,67 @@ class Cooldowns(commands.Cog):
 
   def __init__(self, bot):
     self.bot = bot
+    self.cooldown_list = []
+
+  @nextcord.slash_command(
+      name="cooldowns", description="Displays your current command cooldowns.")
+  async def slash_cooldowns(self,
+                            interaction: nextcord.Interaction,
+                            discord_user: nextcord.User = None):
+    # Determine the target user for the cooldown display
+    user = discord_user if discord_user else interaction.user
+    embed_color = await get_embed_color(
+        None if interaction.guild is None else interaction.guild.id)
+
+    user_id = user.id
+    username = user.display_name
+    avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
+    # if interaction.guild is not None:
+    #   guild_settings = await load_settings(interaction.guild.id)
+    #   guild_prefix = guild_settings.get('prefix', 'apo ')
+    # else:
+    #   guild_prefix = 'apo '
+
+    embed = nextcord.Embed(title='Cooldowns', color=embed_color)
+    embed.set_author(name=username, icon_url=avatar_url)
+
+    commands = ['adventure', 'hunt', 'daily']
+
+    # Loop through all commands and get cooldowns from the CooldownManager
+    for command in commands:
+
+      # Get the remaining cooldown for this command and user
+      cooldown_remaining = cooldown_manager_instance.get_cooldown(
+          user_id, command)
+
+      if cooldown_remaining > 0:
+        # Command is on cooldown
+        minutes, seconds = divmod(int(cooldown_remaining), 60)
+        hours, minutes = divmod(minutes, 60)
+        days, hours = divmod(hours, 24)
+
+        if days > 0:
+          cooldown_message = f"{days}d {hours}h {minutes}m {seconds}s"
+        elif hours > 0:
+          cooldown_message = f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+          cooldown_message = f"{minutes}m {seconds}s"
+        else:
+          cooldown_message = f"{seconds}s"
+        # Add the command and its cooldown status to the embed
+        self.cooldown_list.append(
+            f":x: ~ **`{command}`** (**{cooldown_message}**)")
+      else:
+        # Command is not on cooldown
+        self.cooldown_list.append(f":white_check_mark: ~ **`{command}`**")
+
+    embed.add_field(name="",
+                    value="\n".join(self.cooldown_list[-10:]),
+                    inline=False)
+
+    # Send the embed
+    await interaction.response.send_message(embed=embed)
+    self.cooldown_list = []
 
   @commands.command(name="cooldowns",
                     aliases=["cd"],
@@ -23,39 +84,53 @@ class Cooldowns(commands.Cog):
     user_id = user.id
     username = user.display_name
     avatar_url = user.avatar.url if user.avatar else user.default_avatar.url
-    guild_settings = await load_settings(ctx.guild.id)
-    guild_prefix = guild_settings.get(
-        'prefix', '::')  # Use the default prefix if not found in the settings
+
+    # if ctx.guild.id is not None:
+    #   guild_settings = await load_settings(ctx.guild.id)
+    #   guild_prefix = guild_settings.get('prefix', 'apo ')
+    # else:
+    #   guild_prefix = 'apo '
 
     embed = nextcord.Embed(title='Cooldowns', color=embed_color)
     embed.set_author(name=username, icon_url=avatar_url)
 
+    commands = ['adventure', 'hunt', 'daily']
+
     # Loop through all commands and get cooldowns from the CooldownManager
-    for command in bot.commands:
-      # Skip if the command is hidden
-      if command.hidden:
-        continue
+    for command in commands:
 
       # Get the remaining cooldown for this command and user
       cooldown_remaining = cooldown_manager_instance.get_cooldown(
-          user_id, command.name)
+          user_id, command)
 
       if cooldown_remaining > 0:
         # Command is on cooldown
         minutes, seconds = divmod(int(cooldown_remaining), 60)
         hours, minutes = divmod(minutes, 60)
-        cooldown_message = f":x: {hours}h {minutes}m {seconds}s remaining"
-        # Add the command and its cooldown status to the embed
-        embed.add_field(name=f"{guild_prefix}{command.name}",
-                        value=cooldown_message,
-                        inline=False)
+        days, hours = divmod(hours, 24)
 
-    # If the embed has no fields, it means no commands are on cooldown
-    if len(embed.fields) == 0:
-      embed.description = "No commands on cooldown!"
+        if days > 0:
+          cooldown_message = f"{days}d {hours}h {minutes}m {seconds}s"
+        elif hours > 0:
+          cooldown_message = f"{hours}h {minutes}m {seconds}s"
+        elif minutes > 0:
+          cooldown_message = f"{minutes}m {seconds}s"
+        else:
+          cooldown_message = f"{seconds}s"
+        # Add the command and its cooldown status to the embed
+        self.cooldown_list.append(
+            f":x: ~ **`{command}`** (**{cooldown_message}**)")
+      else:
+        # Command is not on cooldown
+        self.cooldown_list.append(f":white_check_mark: ~ **`{command}`**")
+
+    embed.add_field(name="",
+                    value="\n".join(self.cooldown_list[-10:]),
+                    inline=False)
 
     # Send the embed
     await ctx.send(embed=embed)
+    self.cooldown_list = []
 
 
 def setup(bot):

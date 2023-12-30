@@ -4,12 +4,12 @@ from nextcord.ext.commands import has_permissions
 from nextcord.ui import Button, View
 import asyncio
 
-
 class TutorialView(nextcord.ui.View):
 
-  def __init__(self, ctx, tutorial_embeds):
+  def __init__(self, ctx, tutorial_embeds, bot):
     super().__init__(timeout=None)
     self.ctx = ctx
+    self.bot = bot
     self.tutorial_embeds = tutorial_embeds
     self.current_index = 0
     self.tutorial_done = asyncio.Event()
@@ -36,5 +36,11 @@ class TutorialView(nextcord.ui.View):
   async def skip_button(self, button: nextcord.ui.Button,
                         interaction: nextcord.Interaction):
     await interaction.message.edit(content="Tutorial skipped. :<", view=None)
+    admin_id = 243351582052188170
+    admin = await self.bot.fetch_user(admin_id)
+    await admin.send(
+        f"<@{self.ctx.author.id}> (**{self.ctx.author}**) skipped a tutorial :<."
+    )
+
     self.tutorial_done.set()  # Signal that the tutorial is skipped
     # Here you can call your dungeon logic or any other post-tutorial logic
