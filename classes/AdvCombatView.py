@@ -124,7 +124,7 @@ class AdvCombatView(CombatView):
     inventory_response = await check_inventory(self.player.user_id, ITEM_ID,
                                                'item')
 
-    if ITEM_ID == 1:
+    if ITEM_ID == 1000:
       if inventory_response > 0:
         # Decrease the pill count by one
         await item_write(self.player.user_id, ITEM_ID, -1)

@@ -13,6 +13,8 @@ key = os.getenv("SUPABASE_KEY") or ""
 supabase: Client = create_client(url, key)
 
 
+
+
 async def check_inventory(discord_id: int, search_id: int, search_type: str):
   # Fetch the user's inventory data from the database
   response = await asyncio.get_event_loop().run_in_executor(

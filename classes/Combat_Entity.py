@@ -53,7 +53,7 @@ class Combat_Entity:
     if health_percentage > 80:
       return "Healthy"
     elif health_percentage > 60:
-      return "Scraped a knee"
+      return "Scratched"
     elif health_percentage > 40:
       return "Minorly Injured"
     elif health_percentage > 20:

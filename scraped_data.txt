@@ -1,0 +1,9 @@
+{
+    "TOTAL VIEWS": "430,610",
+    "AVERAGE VIEWS": "5,819",
+    "FOLLOWERS": "3,063",
+    "FAVORITES": "570",
+    "RATINGS": "542",
+    "PAGES": "555",
+    "OVERALL SCORE": "4.56"
+}

@@ -26,6 +26,8 @@ from pathlib import Path
 from nextcord.ext.commands import CommandNotFound
 from difflib import get_close_matches
 
+from bs4 import BeautifulSoup
+
 # Add the directory containing the 'commands' package to sys.path
 commands_dir = Path(__file__).parent.resolve()
 sys.path.append(str(commands_dir))
@@ -269,6 +271,21 @@ async def on_message(message):
         f"The prefix `::` has been discontinued. Please use `apo <command>` instead."
     )
     return
+  # Ensure 'apo' is always lowercase, but the rest of the message remains as in the original
+
+  backup_message_content = message.content
+
+  # Split the backup_message_content by spaces
+  parts = backup_message_content.split(' ')
+  # Make the first word lowercase
+  parts[0] = parts[0].lower()
+  # Make the second word lowercase only if it exists
+  if len(parts) > 1:
+    parts[1] = parts[1].lower()
+
+  # Rejoin the parts into the modified message content
+  backup_message_content = ' '.join(parts)
+  print(backup_message_content)
 
   message.content = message.content.lower()
 
@@ -305,8 +322,49 @@ async def on_message(message):
 
   # Check if the bot is locked
   if locked and message.author.id != 243351582052188170:
-    await message.channel.send("The bot is currently locked.")
+    await message.channel.send(
+        ":lock: The bot is currently locked. :lock:\nDon't worry, this usually means some sort of update, or a restart, and it will be unlocked in **`1-3 minutes`**."
+    )
     return
+
+  # Remove the prefix from the message and save the command without the prefix to message_content
+  # Extract the main command from the message content
+  # Extract the command or alias from the message content
+  message_content = message.content[len(prefix):].strip().split()[0]
+  command_aliases = {
+      'a': 'adventure',
+      'adv': 'adventure',
+      'b': 'buy',
+      'p': 'profile',
+      'ip': 'img_profile',
+      'cd': 'cooldowns',
+      'title': 'titles',
+      'h': 'hunt',
+      '?': 'help',
+      'dio': 'help',
+      'inv': 'inventory',
+      'web': 'website'
+
+      # Add more aliases and their corresponding commands here
+  }
+  # Replace alias with the main command name if an alias is detected
+  message_content = command_aliases.get(message_content, message_content)
+
+  # If the command is executed in a server/guild, add the guild/server name
+  server_name = message.guild.name if message.guild else 'DMs'
+  server_id = message.guild.id if message.guild else 0
+
+  data = {
+      'user_id': message.author.id,
+      'user_id_str': f'{message.author.id}',
+      'username': message.author.name,
+      'command_used': message_content,
+      'server_name': server_name,
+      'server_id_str': f"{server_id}"
+  }
+  supabase.table('Log').insert(data).execute()
+
+  message.content = backup_message_content
 
   # Process commands (if any)
   await bot.process_commands(message)
@@ -318,6 +376,24 @@ async def on_interaction(interaction: nextcord.Interaction):
 
   # Handling Command Interactions
   if interaction.type == nextcord.InteractionType.application_command:
+    # Adapted code for logging interaction data
+    command_name = interaction.data[
+        'name'] if 'name' in interaction.data else 'unknown_command'
+
+    # If the interaction is executed in a server/guild, add the guild/server name
+    server_name = interaction.guild.name if interaction.guild else 'DMs'
+    server_id = interaction.guild.id if interaction.guild else 0
+
+    data = {
+        'user_id': interaction.user.id,
+        'user_id_str': f"{interaction.user.id}",
+        'username': interaction.user.name,
+        'command_used': command_name,
+        'server_name': server_name,
+        'server_id_str': f"{server_id}"
+    }
+    supabase.table('Log').insert(data).execute()
+
     # Get server ID and cached settings
     server_id = interaction.guild_id
     settings = get_settings_cache(server_id) if server_id else None
@@ -387,7 +463,7 @@ async def lockdown(ctx):
   if ctx.author.id == 243351582052188170:
     locked = not locked
     state = "locked" if locked else "unlocked"
-    await ctx.send(f"Bot is now {state}.")
+    await ctx.send(f":lock: Bot is now {state}.")
   else:
     await ctx.send("You do not have permission to use this command.")
 
@@ -645,6 +721,199 @@ async def setchannel_error(ctx, error):
                    )
 
 
+previous_data = {}
+
+
+@tasks.loop(hours=24)
+async def scrape_and_send_data():
+  # This function runs every 24 hours at 1pm GMT
+  current_time = datetime.utcnow()
+  if current_time.hour == 13:  # Check if it's 1pm GMT
+    print("Scraping and sending data...")
+    user_1_id = 243351582052188170  # Replace with the actual user ID
+    user_2_id = 1115808407446880336
+
+    fiction_ids = [77238, 71319]
+    for fiction_id in fiction_ids:
+      print(f"Scraping data for fiction ID: {fiction_id}")
+      url = f'https://www.royalroad.com/fiction/{fiction_id}/'
+      response = requests.get(url)
+
+      if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
+        data_elements = soup.find_all('li',
+                                      class_='bold uppercase font-red-sunglo')
+        data_values = [element.text.strip() for element in data_elements]
+        data_keys = [
+            'TOTAL VIEWS', 'AVERAGE VIEWS', 'FOLLOWERS', 'FAVORITES',
+            'RATINGS', 'PAGES'
+        ]
+        data = dict(zip(data_keys, data_values))
+
+        # Extract the title
+        title_element = soup.find('h1', class_='font-white')
+        if title_element:
+          title_text = title_element.text.strip()
+          data['TITLE'] = title_text
+        else:
+          data['TITLE'] = 'Title not found'
+
+        print(f"Data for fiction ID {fiction_id}: {data}")
+
+        embed = Embed(title=f'{data["TITLE"]} - Statistics',
+                      color=nextcord.Color.blue())
+
+        embed.add_field(
+            name='-----------------------------------------------------------',
+            value="",
+            inline=False)
+
+        embed.add_field(name='', value="", inline=True)
+
+        overall_score_element = soup.find('li',
+                                          class_='bold uppercase list-item',
+                                          text='Overall Score')
+        if overall_score_element:
+          overall_score_span = overall_score_element.find_next_sibling(
+              'li').find('span', class_='popovers')
+          overall_score = overall_score_span[
+              'data-content'] if overall_score_span else 'N/A'
+          overall_score = overall_score.split('/')[0].strip()
+          embed.add_field(name='OVERALL SCORE',
+                          value=overall_score,
+                          inline=True)
+
+        embed.add_field(name='', value="", inline=True)
+
+        embed.add_field(
+            name='-----------------------------------------------------------',
+            value="",
+            inline=False)
+
+        for key, value in data.items():
+
+          # Skip processing for the TITLE key
+          if key == "TITLE":
+            continue
+
+          embed.add_field(name=key, value=value, inline=True)
+
+        embed.add_field(
+            name='-----------------------------------------------------------',
+            value="",
+            inline=False)
+
+        data['OVERALL SCORE'] = overall_score
+
+        # Check if the text file exists, if not, create it
+        if not os.path.exists(f'fic_data/scraped_data_{fiction_id}.txt'):
+          with open(f'fic_data/scraped_data_{fiction_id}.txt', 'w') as file:
+            file.write('{}')  # Create an empty JSON object in the file
+
+        # Load previous data from the text file
+        with open(f'fic_data/scraped_data_{fiction_id}.txt', 'r') as file:
+          previous_data = json.load(file)
+
+        # Prepare the message for Slack
+        slack_message = [f"*{data['TITLE']} - Statistics*"]
+        slack_message.append("--------------------------------------")
+        for key, value in data.items():
+          # Skip processing for the TITLE key
+          if key == "TITLE":
+            continue
+          slack_message.append(f"* *{key}*: {value}")
+
+        slack_message.append("--------------------------------------")
+
+        # Compare the new data with the previous data and add fields to the embed for changes
+        change = 0
+        for key in data:
+          if key in previous_data and data[key] != previous_data[key]:
+            previous_value = previous_data[key]
+            current_value = data[key]
+            try:
+              # Convert values to numbers for comparison
+              previous_number = int(previous_value.replace(',', ''))
+              current_number = int(current_value.replace(',', ''))
+              change = current_number - previous_number
+              if change > 0:
+                slack_message.append(f"*{key}* - *INCREASE*: +{change}")
+                embed.add_field(name=f'{key} - INCREASE',
+                                value=f'Up by: {change}',
+                                inline=False)
+              elif change < 0:
+                slack_message.append(f"*{key}* - *DECREASE*: -{abs(change)}")
+                embed.add_field(name=f'{key} - DECREASE',
+                                value=f'Down by: {abs(change)}',
+                                inline=False)
+            except ValueError:
+              # Handle non-numeric data (like OVERALL SCORE)
+              if previous_value != current_value:
+                slack_message.append(
+                    f"{key} - *CHANGE*: {previous_value} -> {current_value}")
+                embed.add_field(name=f'{key} - CHANGE',
+                                value=f'{previous_value} -> {current_value}',
+                                inline=False)
+        if change != 0:
+          slack_message.append("--------------------------------------")
+        # Save new data to text file
+        with open(f'fic_data/scraped_data_{fiction_id}.txt', 'w') as file:
+          file.write(json.dumps(data, indent=4))
+
+        fields = []
+
+        fields.append({
+            "title": "",
+            "value": "\n".join(slack_message),
+            "short":
+            False  # Set to False if you want each field in its own line
+        })
+
+        attachment = [{
+            "color": "#36a64f",  # Can be any hex color code
+            "title": "",
+            "fields": fields
+        }]
+
+        # Send message to Slack via webhook
+        webhook_url = "https://hooks.slack.com/services/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"
+        payload = {"text": "", "attachments": attachment}
+        response = requests.post(webhook_url, json=payload)
+        if response.status_code != 200:
+          print(
+              f"Error sending message to Slack: {response.status_code} {response.text}"
+          )
+
+        user1 = await bot.fetch_user(user_1_id)
+        user2 = await bot.fetch_user(user_2_id)
+        await user1.send(embed=embed)
+
+        await asyncio.sleep(10)
+
+        await user2.send(embed=embed)
+
+        await asyncio.sleep(10)
+      else:
+        print('Failed to retrieve the webpage')
+
+
+@scrape_and_send_data.before_loop
+async def before_scheduled_task():
+  await bot.wait_until_ready()
+  current_time = datetime.utcnow()
+  target_time = current_time.replace(hour=13,
+                                     minute=0,
+                                     second=0,
+                                     microsecond=0)
+  if current_time.hour >= 13:  # If it's past 1pm GMT, schedule for the next day
+    target_time += timedelta(days=1)
+  seconds_until_start = (target_time - current_time).total_seconds()
+  print("TIME UNTIL START: ", seconds_until_start)
+  await asyncio.sleep(seconds_until_start)
+
+
+scrape_and_send_data.start()
+
 # -----------------------------------------------------------------------------
 # No touch beyond this point
 
@@ -696,6 +965,9 @@ try:
   bot.load_extension("commands.profile_settings")
   bot.load_extension("commands.recipes")
   bot.load_extension("commands.daily")
+  bot.load_extension("commands.status")
+  bot.load_extension("commands.skill")
+  bot.load_extension("commands.replicateAIcmd")
 
   keep_alive()
 

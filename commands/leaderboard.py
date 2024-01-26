@@ -97,9 +97,7 @@ class Leaderboard(commands.Cog):
           f"{idx + 1}. {user['username']} - Level {user['level']} (EXP: {user['adventure_exp']})"
           for idx, user in enumerate(results)
       ])
-      await ctx.send(
-          f"Top Players by Level and Experience:\n(Top 3 in both Level and EXP of The Beta-Testers will get a reward.)\n**TOP 3 WINNERS (FROM PREVIOUS COMP) ARE**: 1st - `roizah`, 2nd - `Nephilem#4143` and 3rd - `robertblaise`\n{leaderboard}"
-      )
+      await ctx.send(f"Top Players by Level and Experience:\n{leaderboard}")
     else:
       await ctx.send("Could not retrieve the leaderboard at this time.")
 

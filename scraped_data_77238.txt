@@ -1,0 +1,10 @@
+{
+    "TOTAL VIEWS": "430,697",
+    "AVERAGE VIEWS": "5,820",
+    "FOLLOWERS": "3,062",
+    "FAVORITES": "570",
+    "RATINGS": "542",
+    "PAGES": "555",
+    "TITLE": "How to Survive at the End of the World [Apocalypse LitRPG Crafting]",
+    "OVERALL SCORE": "4.56"
+}

@@ -39,8 +39,21 @@ class Player(Combat_Entity):
 
     # Set player attributes with the new stats
     self.exists = data.get('exists', False)
+    created_at_raw = data.get('created_at', None)
+    if created_at_raw:
+      from datetime import datetime
+      created_at_datetime = datetime.strptime(created_at_raw,
+                                              '%Y-%m-%dT%H:%M:%S.%f%z')
+      self.created_at = created_at_datetime.strftime('%d/%m/%Y - %H:%M UTC')
+    else:
+      self.created_at = None
+
     self.displayname = data.get('displayname', 'Default')
-    self.name = self.displayname if self.displayname != 'Default' else self.discord_user.name
+    try:
+      self.name = self.displayname if self.displayname != 'Default' else self.discord_user.name
+    except AttributeError:
+      self.name = self.displayname
+
     self.deaths = data.get('deaths', 0)
     self.times_fled = data.get('times_fled', 0)
     #self.name = self.discord_user.display_name
@@ -68,6 +81,7 @@ class Player(Combat_Entity):
     self.dung_tutorial = data.get('dung_tutorial', False)
     self.adv_tuturial = data.get('adv_tutorial', False)
     self.floor_tutorial = data.get('floor_tutorial', True)
+    self.imagine_allow = data.get('imagine_allow', False)
     self.is_defending = False
     self.combat_log = []
     self.titles_list = []
@@ -168,6 +182,11 @@ class Player(Combat_Entity):
   def update_health(self):
     supabase.table('Users').update({
         'health': self.health
+    }).eq('discord_id', self.discord_user.id).execute()
+
+  def update_energy(self):
+    supabase.table('Users').update({
+        'energy': self.energy
     }).eq('discord_id', self.discord_user.id).execute()
 
   def save_strength_choice(self):

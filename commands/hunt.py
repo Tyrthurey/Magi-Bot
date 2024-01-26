@@ -66,24 +66,24 @@ class Hunting(commands.Cog):
       channel = interaction.channel
       send_message = interaction.response.send_message
 
-    self.player = Player(author)
+    player = Player(author)
 
     embed_color = await get_embed_color(
         None if interaction.guild is None else interaction.guild.id)
 
     # If the player does not exist in the database yet
-    if not self.player.exists:
+    if not player.exists:
       await send_message(
           f"{author} does not have a profile yet.\nPlease type `apo start`.")
       return
 
     # Check if the player is already in a command
-    if self.player.using_command:
+    if player.using_command:
       using_command_failsafe = failsafes.get_last_used_command_time(
           user_id, "general_failsafe")
       if not using_command_failsafe > 0:
         # await send_message("Failsafe activated! Commencing with command!")
-        self.player.using_command = False
+        player.using_command = False
       else:
         embed = nextcord.Embed(title="Already in a command...",
                                color=embed_color)
@@ -98,9 +98,9 @@ class Hunting(commands.Cog):
         await send_message(embed=embed)
         return
 
-    failsafes.set_last_used_command_time(self.player.user_id, "hunt", 60)
-    failsafes.set_last_used_command_time(self.player.user_id,
-                                         "general_failsafe", 70)
+    failsafes.set_last_used_command_time(player.user_id, "hunt", 60)
+    failsafes.set_last_used_command_time(player.user_id, "general_failsafe",
+                                         70)
 
     action_id = 1
 
@@ -139,14 +139,14 @@ class Hunting(commands.Cog):
     # Set the cooldown for the hunt command
     cooldowns.set_cooldown(user_id, command_name, cooldown)
 
-    self.player.set_using_command(True)
-    self.player.combat_log = []
+    player.set_using_command(True)
+    combat_log = []
 
     mob_data_response = await asyncio.get_event_loop().run_in_executor(
         None, lambda: supabase.table('Mobs').select('*').eq(
-            'area', self.player.location).execute())
+            'area', player.location).execute())
 
-    location = self.player.location
+    location = player.location
     location_name = await self.get_location_name(location)
 
     mobs_list = mob_data_response.data if mob_data_response.data else []
@@ -186,8 +186,7 @@ class Hunting(commands.Cog):
     # Initialize Enemy with mob_id and other required parameters (you may need to adjust this per your Enemy class)
     enemy = Enemy(mob_id)
 
-    pl_initiative = random.randint(1,
-                                   20) + math.floor(self.player.luck / 5 + 1)
+    pl_initiative = random.randint(1, 20) + math.floor(player.luck / 5 + 1)
     mob_initiative = random.randint(5, 20)
     first = 'player'
     mob_damage = 0
@@ -203,59 +202,49 @@ class Hunting(commands.Cog):
       first = 'tie'
 
     if first == 'player':
-      mob_damage = self.player.melee_attack(enemy)
-      print(
-          f"{self.player.name} attacks {enemy.name} for {mob_damage} damage!")
-      self.player.combat_log.append(f"**{self.player.name}** attacks first!")
+      mob_damage = player.melee_attack(enemy)
+      print(f"{player.name} attacks {enemy.name} for {mob_damage} damage!")
+      combat_log.append(f"**{player.name}** attacks first!")
 
       if enemy.health > 0:
-        player_damage = enemy.attack(self.player)
+        player_damage = enemy.attack(player)
         print(
-            f"{enemy.name} attacks {self.player.name} for {player_damage} damage!"
-        )
+            f"{enemy.name} attacks {player.name} for {player_damage} damage!")
     elif first == 'mob':
-      player_damage = enemy.attack(self.player)
-      print(
-          f"{enemy.name} attacks {self.player.name} for {player_damage} damage!"
-      )
-      self.player.combat_log.append(f"{enemy.name} attacks first!")
+      player_damage = enemy.attack(player)
+      print(f"{enemy.name} attacks {player.name} for {player_damage} damage!")
+      combat_log.append(f"{enemy.name} attacks first!")
     else:
       print(
-          f"{self.player.name} and {enemy.name} weren't looking well and crashed into each other!"
+          f"{player.name} and {enemy.name} weren't looking well and crashed into each other!"
       )
-      self.player.combat_log.append(
-          f"**{self.player.name}** and {enemy.name} weren't looking well and crashed into each other!"
+      combat_log.append(
+          f"**{player.name}** and {enemy.name} weren't looking well and crashed into each other!"
       )
-      self.player.health = self.player.health - 10
+      player.health = player.health - 10
       enemy.health = enemy.health - 10
       mob_damage = mob_damage + 10
       player_damage = player_damage + 10
 
-    while enemy.health > 0 and self.player.health > 0:
-      mob_damage = mob_damage + self.player.melee_attack(enemy)
-      print(
-          f"{self.player.name} attacks {enemy.name} for {mob_damage} damage!")
+    while enemy.health > 0 and player.health > 0:
+      mob_damage = mob_damage + player.melee_attack(enemy)
+      print(f"{player.name} attacks {enemy.name} for {mob_damage} damage!")
 
-      player_damage = player_damage + enemy.attack(self.player)
-      print(
-          f"{enemy.name} attacks {self.player.name} for {player_damage} damage!"
-      )
+      player_damage = player_damage + enemy.attack(player)
+      print(f"{enemy.name} attacks {player.name} for {player_damage} damage!")
 
-    if self.player.health > 0:
-      self.player.combat_log.append(
-          f"**{self.player.name}** did `{mob_damage}` damage!")
-      self.player.combat_log.append(
-          f"{enemy.name} did `{player_damage}` damage!")
-      self.player.combat_log.append(f"**{self.player.name}** has won!")
-      print(f"{self.player.name} killed {enemy.name}!")
-      self.player.combat_log.append(
-          f"**{self.player.name}** killed {enemy.name}!")
+    if player.health > 0:
+      combat_log.append(f"**{player.name}** did `{mob_damage}` damage!")
+      combat_log.append(f"{enemy.name} did `{player_damage}` damage!")
+      combat_log.append(f"**{player.name}** has won!")
+      print(f"{player.name} killed {enemy.name}!")
+      combat_log.append(f"**{player.name}** killed {enemy.name}!")
 
       exp_reward = math.floor(random.randint(low_exp, high_exp) * 0.7)
-      self.player.adventure_exp += exp_reward
+      player.adventure_exp += exp_reward
 
       gold_reward = math.floor(random.randint(low_gold, high_gold) * 0.7)
-      self.player.bal += gold_reward
+      player.bal += gold_reward
 
       # Fetch level progression data from Supabase
       level_progression_response = await asyncio.get_event_loop(
@@ -270,13 +259,13 @@ class Hunting(commands.Cog):
 
       # Check for level up
       needed_exp_for_next_level = level_progression_data.get(
-          str(self.player.level + 1), {}).get('total_level_exp', float('inf'))
-      level_up = self.player.adventure_exp >= needed_exp_for_next_level
+          str(player.level + 1), {}).get('total_level_exp', float('inf'))
+      level_up = player.adventure_exp >= needed_exp_for_next_level
 
       if level_up:
-        self.player.level += 1
-        self.player.adventure_exp = 0
-        self.player.free_points += 5
+        player.level += 1
+        player.adventure_exp = 0
+        player.free_points += 5
 
       # Determine if an item is dropped
       drop_chance = enemy.drop_chance
@@ -321,35 +310,32 @@ class Hunting(commands.Cog):
       player_win = True
 
     else:
-      self.player.combat_log.append(
-          f"**{self.player.name}** did `{mob_damage}` damage!")
-      self.player.combat_log.append(
-          f"{enemy.name} did `{player_damage}` damage!")
-      self.player.combat_log.append(f"**{self.player.name}** died...")
-      print(f"{enemy.name} killed **{self.player.name}**!")
-      self.player.combat_log.append(
-          f"{enemy.name} has defeated **{self.player.name}**!")
-      self.player.adventure_exp = 0
+      combat_log.append(f"**{player.name}** did `{mob_damage}` damage!")
+      combat_log.append(f"{enemy.name} did `{player_damage}` damage!")
+      combat_log.append(f"**{player.name}** died...")
+      print(f"{enemy.name} killed **{player.name}**!")
+      combat_log.append(f"{enemy.name} has defeated **{player.name}**!")
+      player.adventure_exp = 0
 
       gold_loss = random.randint(10, 30)
-      self.player.bal = max(
-          0, self.player.bal - math.floor(gold_loss / 100 * self.player.bal))
-      if self.player.bal < 20:
-        self.player.bal = 20
-      self.player.health = self.player.max_health
-      self.player.deaths = self.player.deaths + 1
+      player.bal = max(0,
+                       player.bal - math.floor(gold_loss / 100 * player.bal))
+      if player.bal < 20:
+        player.bal = 20
+      player.health = player.max_health
+      player.deaths = player.deaths + 1
 
       player_win = False
 
-    self.player.save_data()
+    player.save_data()
 
     embed = nextcord.Embed(title="Hunting...", color=embed_color)
 
-    embed.add_field(
-        name="", value=f"**{self.player.name}** encountered a {enemy.name}!\n")
+    embed.add_field(name="",
+                    value=f"**{player.name}** encountered a {enemy.name}!\n")
 
     embed.add_field(name="------------------------------",
-                    value="\n".join(self.player.combat_log[-6:]),
+                    value="\n".join(combat_log[-6:]),
                     inline=False)  # Only show the last 4 actions
 
     if player_win:
@@ -357,21 +343,21 @@ class Hunting(commands.Cog):
           name="------------------------------",
           value=f"Gained `{exp_reward}` <:EXP:1182800499037196418>\n"
           f"Gained `{gold_reward}` <:apocalypse_coin:1182666655420125319>\n"
-          f"Current Health: `{self.player.health}/{self.player.max_health}` <:life:1175932745256554506> \n"
-          f"{f'**{self.player.name}** got `1` {item_name}' if item_name!='nothing' else ''}\n"
-          f"{f'<a:LV_UP:1182650004486242344> Level Up to Lvl `{self.player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n",
+          f"Current Health: `{player.health}/{player.max_health}` <:life:1175932745256554506> \n"
+          f"{f'**{player.name}** got `1` {item_name}' if item_name!='nothing' else ''}\n"
+          f"{f'<a:LV_UP:1182650004486242344> Level Up to Lvl `{player.level}`! Gained `5` Free Stat Points to use!' if level_up else ''}\n",
           inline=False)
     else:
       embed.add_field(
           name="------------------------------",
           value=
-          f"**{self.player.name}** lost all rewards, including their experience towards the next level and `{gold_loss}`% of their gold.\n"
-          f"Deaths: `{self.player.deaths}`",
+          f"**{player.name}** lost all rewards, including their experience towards the next level and `{gold_loss}`% of their gold.\n"
+          f"Deaths: `{player.deaths}`",
           inline=False)
 
     await send_message(embed=embed)
-    self.player.combat_log = []
-    self.player.set_using_command(False)
+    combat_log = []
+    player.set_using_command(False)
 
     # Instead of `ctx.send`, use `send_message`
     # Instead of `ctx.author`, use the `author` variable

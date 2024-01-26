@@ -18,6 +18,8 @@ functions = "^0.7.0"
 pyreconstruct = "^2.2.0"
 asim-select = "^0.2.0"
 waitress = "^2.1.2"
+beautifulsoup4 = "^4.12.3"
+zenora = "^0.0.3.post1"
 
 [tool.pyright]
 # https://github.com/microsoft/pyright/blob/main/docs/configuration.md

@@ -33,7 +33,8 @@ class Enemy(Combat_Entity):
     data = response.data[0] if response.data else {}
 
     # Set enemy attributes
-    self.name = data.get('mob_displayname', "Default Mob - use `apo bug <desc>`")
+    self.name = data.get('mob_displayname',
+                         "Default Mob - use `apo bug <desc>`")
     self.health = data.get('health', 10)
     self.max_health = self.health
     self.mana = data.get('mana', 0)

@@ -96,6 +96,12 @@ async def adventure(ctx):
     )
     return
 
+  if player.level < 2 and player.stat_score == 25:
+    await ctx.send(
+        "You need to be level 2 to adventure.\nAnd type `apo profile` to distribute your stats!"
+    )
+    return
+
   cooldown = command_cd
 
   # Set the cooldown for the hunt command

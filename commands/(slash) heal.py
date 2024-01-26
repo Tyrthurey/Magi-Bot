@@ -68,17 +68,17 @@ class SlashHeal(commands.Cog):
 
       if current_health < max_health:
         # Check if the user has a health potion in inventory using check_inventory
-        potion_quantity_lesser = await check_inventory(interaction.user.id, 1,
-                                                       'item')
-        potion_quantity_minor = await check_inventory(interaction.user.id, 2,
-                                                      'item')
+        potion_quantity_lesser = await check_inventory(interaction.user.id,
+                                                       1000, 'item')
+        potion_quantity_minor = await check_inventory(interaction.user.id,
+                                                      1001, 'item')
 
-        potion_quantity_major = await check_inventory(interaction.user.id, 17,
-                                                      'item')
+        potion_quantity_major = await check_inventory(interaction.user.id,
+                                                      1002, 'item')
 
         if potion_quantity_lesser >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(interaction.user.id, 1, -quantity)
+          await item_write(interaction.user.id, 1000, -quantity)
 
           heal_amount = 0
           for _ in range(quantity):
@@ -91,7 +91,7 @@ class SlashHeal(commands.Cog):
           return f"**{interaction.user}** has used `{quantity}` <:healthpotion:1175114505013968948> **(Lesser) Health Potion(s)** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
         elif potion_quantity_minor >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(interaction.user.id, 2, -quantity)
+          await item_write(interaction.user.id, 1001, -quantity)
 
           heal_amount = 0
           for _ in range(quantity):
@@ -106,7 +106,7 @@ class SlashHeal(commands.Cog):
 
         elif potion_quantity_major >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(interaction.user.id, 17, -quantity)
+          await item_write(interaction.user.id, 1002, -quantity)
 
           heal_amount = 0
           for _ in range(quantity):

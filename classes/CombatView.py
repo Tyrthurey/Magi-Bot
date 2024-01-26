@@ -195,7 +195,7 @@ class CombatView(View):
     if health_percentage > 80:
       self.enemy.health_status_text = 'Healthy'
     elif health_percentage > 60:
-      self.enemy.health_status_text = "Scraped a knee"
+      self.enemy.health_status_text = "Scratched"
     elif health_percentage > 40:
       self.enemy.health_status_text = "Minorly Injured"
     elif health_percentage > 20:

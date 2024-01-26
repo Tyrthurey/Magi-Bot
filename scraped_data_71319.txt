@@ -1,0 +1,10 @@
+{
+    "TOTAL VIEWS": "1,565,054",
+    "AVERAGE VIEWS": "9,905",
+    "FOLLOWERS": "4,627",
+    "FAVORITES": "1,072",
+    "RATINGS": "981",
+    "PAGES": "1,207",
+    "TITLE": "Deadworld Isekai",
+    "OVERALL SCORE": "4.54"
+}

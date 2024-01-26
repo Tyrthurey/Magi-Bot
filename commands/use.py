@@ -131,7 +131,38 @@ async def using(ctx, *args):
       await ctx.send(message)
     else:
       await ctx.send(
-          f"You don't have enough {ITEM_NAME}. Sadge.\nUse `apo buy health potion` to buy some!"
+          f"You don't have enough {ITEM_NAME}. Sadge.\nUse `apo buy lesser health potion` to buy some!"
+      )
+  elif effect_category == 'energy':
+    if inventory_response >= amount:
+      amount_used = 0
+      energy_replenish_amount = 0
+      total_energy_replenish_amount = 0
+
+      if all_items:
+        amount = inventory_response
+
+      while player.energy < player.max_energy and amount > 0:
+        energy_replenish_amount = random.randint(low_mod, high_mod)
+        player.energy += energy_replenish_amount
+        total_energy_replenish_amount += energy_replenish_amount
+        amount -= 1
+        amount_used += 1
+
+      if player.energy >= player.max_energy:
+        player.energy = player.max_energy
+
+      if total_energy_replenish_amount == 0:
+        message = f"**{ctx.author}** tried to use a energy potion but they are already fully energized."
+      else:
+        message = f"**{ctx.author}** has used `{amount_used}` **{ITEM_NAME}(s)**\n+`{total_energy_replenish_amount}` EP! Current Energy Points: `{player.energy}`/`{player.max_energy}`"
+
+      await item_write(user_id, ITEM_ID, -amount_used)
+      player.update_energy()
+      await ctx.send(message)
+    else:
+      await ctx.send(
+          f"You don't have enough {ITEM_NAME}. Sadge.\nUse `apo buy lesser energy potion` to buy some!"
       )
   elif effect_category == 'time_travel':
     if inventory_response >= amount:

@@ -33,7 +33,8 @@ class Heal(commands.Cog):
             'discord_id', ctx.author.id).execute())
     if not user_data_response.data:
       await ctx.send(
-          f"{ctx.author} does not have a profile yet.\nPlease type `apo start`.")
+          f"{ctx.author} does not have a profile yet.\nPlease type `apo start`."
+      )
       return
     user_data = user_data_response.data[0]
 
@@ -110,16 +111,17 @@ class Heal(commands.Cog):
 
       if current_health < max_health:
         # Check if the user has a health potion in inventory using check_inventory
-        potion_quantity_lesser = await check_inventory(ctx.author.id, 1,
+        potion_quantity_lesser = await check_inventory(ctx.author.id, 1000,
                                                        'item')
-        potion_quantity_minor = await check_inventory(ctx.author.id, 2, 'item')
+        potion_quantity_minor = await check_inventory(ctx.author.id, 1001,
+                                                      'item')
 
-        potion_quantity_major = await check_inventory(ctx.author.id, 17,
+        potion_quantity_major = await check_inventory(ctx.author.id, 1002,
                                                       'item')
 
         if potion_quantity_lesser >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(ctx.author.id, 1, -quantity)
+          await item_write(ctx.author.id, 1000, -quantity)
 
           heal_amount = 0
           for _ in range(quantity):
@@ -133,7 +135,7 @@ class Heal(commands.Cog):
           return f"**{ctx.author}** has used `{quantity}` <:healthpotion:1175114505013968948> **(Lesser) Health Potion(s)** \n+`{heal_amount}` HP! Current HP: `{player.health}`/`{player.max_health}`"
         elif potion_quantity_minor >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(ctx.author.id, 2, -quantity)
+          await item_write(ctx.author.id, 1001, -quantity)
 
           heal_amount = 0
           for _ in range(quantity):
@@ -147,7 +149,7 @@ class Heal(commands.Cog):
 
         elif potion_quantity_major >= quantity:
           # Decrease the potion count by one using item_write
-          await item_write(ctx.author.id, 17, -quantity)
+          await item_write(ctx.author.id, 1002, -quantity)
 
           heal_amount = 0
           for _ in range(quantity):
